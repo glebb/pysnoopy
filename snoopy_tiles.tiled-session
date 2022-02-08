@@ -1,0 +1,132 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "assets/level1.json",
+    "expandedProjectPaths": [
+        "assets"
+    ],
+    "fileStates": {
+        "assets/720x540.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "assets/Layer_0001_8.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "assets/dfgdfg.json": {
+            "scale": 1.7183823529411764,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 283.40607616602483,
+                "y": 207.4625588361147
+            }
+        },
+        "assets/fence.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "assets/ground.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "assets/level1.json": {
+            "scale": 1.5,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 315,
+                "y": 259.3333333333333
+            }
+        },
+        "assets/level2.json": {
+            "scale": 1.5662581699346403,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 288.2666527567681,
+                "y": 180.0469459078817
+            }
+        },
+        "assets/level_1.json": {
+            "scale": 0.75,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 282.6666666666667,
+                "y": 177.33333333333326
+            }
+        },
+        "assets/map1.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "assets/map1_ccc.tsx": {
+            "dynamicWrapping": false,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "assets/snoopy1.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "assets/test.json": {
+            "scale": 1.6432031249999999,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 288.46098987305663,
+                "y": 176.4845718632625
+            }
+        },
+        "assets/test2.json": {
+            "scale": 1.6692857142857143,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 285.15190415062045,
+                "y": 180.31664527171586
+            }
+        },
+        "assets/untitledccc.json": {
+            "scale": 1.4022,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 345.1718727713593,
+                "y": 313.07944658393956
+            }
+        }
+    },
+    "last.imagePath": "/Users/bodhi/src/pysnoopy/source_code",
+    "map.height": 20,
+    "map.lastUsedFormat": "json",
+    "map.orientation": null,
+    "map.tileHeight": 18,
+    "map.tileWidth": 18,
+    "map.width": 33,
+    "openFiles": [
+        "assets/level1.json",
+        "assets/fence.tsx",
+        "assets/ground.tsx",
+        "assets/level2.json"
+    ],
+    "project": "snoopy_tiles.tiled-project",
+    "recentFiles": [
+        "assets/level2.json",
+        "assets/ground.tsx",
+        "assets/fence.tsx",
+        "assets/level1.json",
+        "assets/Layer_0001_8.tsx",
+        "assets/dfgdfg.json",
+        "assets/map1_ccc.tsx",
+        "assets/snoopy1.tsx",
+        "assets/level_1.json",
+        "assets/map1.tsx",
+        "assets/test.json",
+        "assets/test2.json"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.tileSize": {
+        "height": 18,
+        "width": 18
+    }
+}
