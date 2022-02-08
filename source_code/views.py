@@ -3,14 +3,10 @@ from globals import (
     PLAYER_MOVEMENT_SPEED,
     GRAVITY,
     PLAYER_JUMP_SPEED,
-    PLAYER_START_X,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
-    LEFT_FACING,
-    RIGHT_FACING,
 )
 
-import os
 import random
 import types
 

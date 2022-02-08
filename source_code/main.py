@@ -6,7 +6,7 @@ import arcade
 import os
 
 from globals import SCREEN_HEIGHT, SCREEN_TITLE, SCREEN_WIDTH
-from views import TitleView, GameView
+from views import TitleView
 
 
 def main():
