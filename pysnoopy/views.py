@@ -39,11 +39,10 @@ class GameView(arcade.View):
         self.levels = (Level_1(), Level_2())
         self.level = self.levels[0]
 
-
     def setup(self):
         player_sprite = PlayerCharacter()
         player_sprite.center_x = 0
-        
+
         self.camera = arcade.Camera(self.width, self.height)
         layer_options = {
             "ground": {
@@ -56,10 +55,8 @@ class GameView(arcade.View):
                 "use_spatial_hash": False,
             },
         }
-        self.tile_map = arcade.load_tilemap(
-            self.level.map, TILE_SCALING, layer_options
-        )
-        
+        self.tile_map = arcade.load_tilemap(self.level.map, TILE_SCALING, layer_options)
+
         self.scene = arcade.Scene.from_tilemap(self.tile_map)
         self.scene.add_sprite_list_before("Player", "foreground")
         self.scene.add_sprite_list_before("Player", "ground")
@@ -104,7 +101,10 @@ class GameView(arcade.View):
         ):
             self.physics_engine.player_sprite.die()
 
-        if self.physics_engine.player_sprite.top < -self.physics_engine.player_sprite.height / 2:
+        if (
+            self.physics_engine.player_sprite.top
+            < -self.physics_engine.player_sprite.height / 2
+        ):
             self.setup()
 
         if self.physics_engine.player_sprite.left > SCREEN_WIDTH:

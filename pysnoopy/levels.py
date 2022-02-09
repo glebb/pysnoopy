@@ -13,7 +13,7 @@ class BaseLevel:
 
     def draw(self):
         pass
-    
+
     def setup(self, physics_engine):
         self.physics_engine = physics_engine
 
@@ -22,6 +22,7 @@ class Level_1(BaseLevel):
     def __init__(self):
         self.name = "Level 1"
         self.map = "../assets/level1.json"
+
 
 class Level_2(BaseLevel):
     def __init__(self):
