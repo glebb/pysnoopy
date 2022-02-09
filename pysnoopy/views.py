@@ -31,7 +31,6 @@ class GameView(arcade.View):
 
         self.physics_engine = None
         self.scene = None
-        self.gui_camera = None
         self.camera = None
 
         self.tile_map = None
@@ -51,8 +50,8 @@ class GameView(arcade.View):
     def setup(self):
         player_sprite = PlayerCharacter()
         player_sprite.center_x = 0
+        
         self.camera = arcade.Camera(self.width, self.height)
-        self.gui_camera = arcade.Camera(self.width, self.height)
         layer_options = {
             "ground": {
                 "use_spatial_hash": False,
@@ -64,6 +63,7 @@ class GameView(arcade.View):
                 "use_spatial_hash": False,
             },
         }
+        
         self.tile_map = arcade.load_tilemap(
             self.level["file"], TILE_SCALING, layer_options
         )
@@ -78,12 +78,9 @@ class GameView(arcade.View):
 
     def on_draw(self):
         arcade.start_render()
-
-        self.camera.use()
-
         self.scene.draw()
-        self.gui_camera.use()
         self.item.draw()
+        self.camera.use()
 
     def on_update(self, delta_time):
         self.physics_engine.update()
