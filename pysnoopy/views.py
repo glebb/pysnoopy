@@ -11,8 +11,9 @@ import random
 import types
 
 import arcade
+from levels import Level_1, Level_2
 
-from sprites import PlayerCharacter, Item
+from sprites import PlayerCharacter
 
 
 class GameView(arcade.View):
@@ -35,17 +36,9 @@ class GameView(arcade.View):
 
         self.tile_map = None
 
-        self.levels = (
-            {"name": "Level 1", "file": "../assets/level1.json"},
-            {"name": "Level 2", "file": "../assets/level2.json"},
-        )
+        self.levels = (Level_1(), Level_2())
         self.level = self.levels[0]
 
-        self.item = Item()
-        self.item.center_x = 200
-        self.item.center_y = 300
-        self.item.change_x = 2
-        self.item.change_y = 3
 
     def setup(self):
         player_sprite = PlayerCharacter()
@@ -63,10 +56,10 @@ class GameView(arcade.View):
                 "use_spatial_hash": False,
             },
         }
-        
         self.tile_map = arcade.load_tilemap(
-            self.level["file"], TILE_SCALING, layer_options
+            self.level.map, TILE_SCALING, layer_options
         )
+        
         self.scene = arcade.Scene.from_tilemap(self.tile_map)
         self.scene.add_sprite_list_before("Player", "foreground")
         self.scene.add_sprite_list_before("Player", "ground")
@@ -75,17 +68,18 @@ class GameView(arcade.View):
         self.physics_engine = arcade.PhysicsEnginePlatformer(
             player_sprite, gravity_constant=GRAVITY, walls=self.scene["ground"]
         )
+        self.level.setup(self.physics_engine)
 
     def on_draw(self):
         arcade.start_render()
         self.scene.draw()
-        self.item.draw()
+        self.level.draw()
         self.camera.use()
 
     def on_update(self, delta_time):
         self.physics_engine.update()
         self.physics_engine.player_sprite.update_animation(delta_time)
-        self.item.update()
+        self.level.update()
 
         if self.physics_engine.player_sprite.jumping:
             if self.physics_engine.can_jump():
