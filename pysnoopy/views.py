@@ -34,7 +34,6 @@ class GameView(arcade.View):
         self.gui_camera = None
         self.camera = None
 
-        self.player_sprite = None
         self.tile_map = None
 
         self.levels = (
@@ -50,8 +49,8 @@ class GameView(arcade.View):
         self.item.change_y = 3
 
     def setup(self):
-        self.player_sprite = PlayerCharacter()
-        self.player_sprite.center_x = 0
+        player_sprite = PlayerCharacter()
+        player_sprite.center_x = 0
         self.camera = arcade.Camera(self.width, self.height)
         self.gui_camera = arcade.Camera(self.width, self.height)
         layer_options = {
@@ -71,10 +70,10 @@ class GameView(arcade.View):
         self.scene = arcade.Scene.from_tilemap(self.tile_map)
         self.scene.add_sprite_list_before("Player", "foreground")
         self.scene.add_sprite_list_before("Player", "ground")
-        self.scene.add_sprite("Player", self.player_sprite)
+        self.scene.add_sprite("Player", player_sprite)
 
         self.physics_engine = arcade.PhysicsEnginePlatformer(
-            self.player_sprite, gravity_constant=GRAVITY, walls=self.scene["ground"]
+            player_sprite, gravity_constant=GRAVITY, walls=self.scene["ground"]
         )
 
     def on_draw(self):
@@ -88,16 +87,16 @@ class GameView(arcade.View):
 
     def on_update(self, delta_time):
         self.physics_engine.update()
-        self.player_sprite.update_animation(delta_time)
+        self.physics_engine.player_sprite.update_animation(delta_time)
         self.item.update()
 
-        if self.player_sprite.jumping:
+        if self.physics_engine.player_sprite.jumping:
             if self.physics_engine.can_jump():
-                self.player_sprite.jumping = False
-                if self.player_sprite.should_stop:
-                    self.player_sprite.change_x = 0
+                self.physics_engine.player_sprite.jumping = False
+                if self.physics_engine.player_sprite.should_stop:
+                    self.physics_engine.player_sprite.change_x = 0
 
-        if self.player_sprite.dying:
+        if self.physics_engine.player_sprite.dying:
             if self.step_sound_player and self.step_sound.is_playing(
                 player=self.step_sound_player
             ):
@@ -110,14 +109,14 @@ class GameView(arcade.View):
                 )
 
         if arcade.check_for_collision_with_list(
-            self.player_sprite, self.tile_map.sprite_lists["obstacles"]
+            self.physics_engine.player_sprite, self.tile_map.sprite_lists["obstacles"]
         ):
-            self.player_sprite.die()
+            self.physics_engine.player_sprite.die()
 
-        if self.player_sprite.top < -self.player_sprite.height / 2:
+        if self.physics_engine.player_sprite.top < -self.physics_engine.player_sprite.height / 2:
             self.setup()
 
-        if self.player_sprite.left > SCREEN_WIDTH:
+        if self.physics_engine.player_sprite.left > SCREEN_WIDTH:
             index = self.levels.index(self.level)
             if index >= len(self.levels) - 1:
                 index = 0
@@ -133,7 +132,7 @@ class GameView(arcade.View):
             self.setup()
 
     def on_key_press(self, key, key_modifiers):
-        if self.player_sprite.dying:
+        if self.physics_engine.player_sprite.dying:
             return
         if key == arcade.key.UP or key == arcade.key.W:
             if self.physics_engine.can_jump():
@@ -142,7 +141,7 @@ class GameView(arcade.View):
                 ):
                     self.step_sound.stop(player=self.step_sound_player)
                 self.physics_engine.jump(PLAYER_JUMP_SPEED)
-                self.player_sprite.jumping = True
+                self.physics_engine.player_sprite.jumping = True
                 arcade.play_sound(self.jump_sound)
             else:
                 return
@@ -151,10 +150,10 @@ class GameView(arcade.View):
                 player=self.step_sound_player
             ):
                 self.step_sound_player = self.step_sound.play(loop=True)
-            if not self.player_sprite.jumping:
-                self.player_sprite.change_x = -PLAYER_MOVEMENT_SPEED
+            if not self.physics_engine.player_sprite.jumping:
+                self.physics_engine.player_sprite.change_x = -PLAYER_MOVEMENT_SPEED
             else:
-                self.player_sprite.should_stop = False
+                self.physics_engine.player_sprite.should_stop = False
                 return
 
         elif key == arcade.key.RIGHT or key == arcade.key.D:
@@ -162,33 +161,33 @@ class GameView(arcade.View):
                 player=self.step_sound_player
             ):
                 self.step_sound_player = self.step_sound.play(loop=True)
-            if not self.player_sprite.jumping:
-                self.player_sprite.change_x = PLAYER_MOVEMENT_SPEED
+            if not self.physics_engine.player_sprite.jumping:
+                self.physics_engine.player_sprite.change_x = PLAYER_MOVEMENT_SPEED
             else:
-                self.player_sprite.should_stop = False
+                self.physics_engine.player_sprite.should_stop = False
                 return
 
     def on_key_release(self, key, key_modifiers):
-        if self.player_sprite.dying:
+        if self.physics_engine.player_sprite.dying:
             return
         if key == arcade.key.LEFT or key == arcade.key.A:
             if self.step_sound_player and self.step_sound.is_playing(
                 player=self.step_sound_player
             ):
                 self.step_sound.stop(player=self.step_sound_player)
-            if not self.player_sprite.jumping:
-                self.player_sprite.change_x = 0
+            if not self.physics_engine.player_sprite.jumping:
+                self.physics_engine.player_sprite.change_x = 0
             else:
-                self.player_sprite.should_stop = True
+                self.physics_engine.player_sprite.should_stop = True
         elif key == arcade.key.RIGHT or key == arcade.key.D:
             if self.step_sound_player and self.step_sound.is_playing(
                 player=self.step_sound_player
             ):
                 self.step_sound.stop(player=self.step_sound_player)
-            if not self.player_sprite.jumping:
-                self.player_sprite.change_x = 0
+            if not self.physics_engine.player_sprite.jumping:
+                self.physics_engine.player_sprite.change_x = 0
             else:
-                self.player_sprite.should_stop = True
+                self.physics_engine.player_sprite.should_stop = True
 
     def on_mouse_motion(self, x, y, delta_x, delta_y):
         pass
