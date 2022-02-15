@@ -45,10 +45,10 @@ class PlayerCharacter(arcade.Sprite):
         self.center_y = self.height * 1.25 - 10
 
     def die(self):
-        if not self.dying:
-            self.dying = True
-            self.set_hit_box([[-0, -0], [0, -0], [0, 0]])
-            self.change_x = 0
+        self.dying = True
+        self.set_hit_box([[-0, -0], [0, -0], [0, 0]])
+        self.change_x = 0
+        self.change_y = -0.5
         
     def update_animation(self, delta_time: float = 1 / 60):
         # Figure out if we need to flip face left or right
