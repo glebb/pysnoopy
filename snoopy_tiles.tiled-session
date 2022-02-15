@@ -34,18 +34,18 @@
             "scaleInEditor": 1
         },
         "assets/level1.json": {
-            "scale": 1.5,
-            "selectedLayer": 0,
+            "scale": 1.0281,
+            "selectedLayer": 1,
             "viewCenter": {
-                "x": 315,
-                "y": 259.3333333333333
+                "x": 481.47067405894376,
+                "y": 295.6910806341795
             }
         },
         "assets/level2.json": {
             "scale": 1.5662581699346403,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 288.2666527567681,
+                "x": 285.3935631944082,
                 "y": 180.0469459078817
             }
         },

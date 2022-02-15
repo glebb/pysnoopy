@@ -61,7 +61,7 @@ class GameView(arcade.View):
         self.scene.add_sprite_list_before("Player", "foreground")
         self.scene.add_sprite_list_before("Player", "ground")
         self.scene.add_sprite("Player", player_sprite)
-
+        
         self.physics_engine = arcade.PhysicsEnginePlatformer(
             player_sprite, gravity_constant=GRAVITY, walls=self.scene["ground"]
         )

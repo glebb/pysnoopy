@@ -48,8 +48,9 @@ class PlayerCharacter(arcade.Sprite):
         self.dying = True
         self.set_hit_box([[-0, -0], [0, -0], [0, 0]])
         self.change_x = 0
-        self.change_y = -1
+        self.change_y -= 3
 
+        
     def update_animation(self, delta_time: float = 1 / 60):
         # Figure out if we need to flip face left or right
         if self.change_x < 0 and self.character_face_direction == RIGHT_FACING:
@@ -60,7 +61,7 @@ class PlayerCharacter(arcade.Sprite):
         # Jumping animation
         if self.change_y >= 0.2:
             self.texture = self.walk_textures[2][self.character_face_direction]
-            return
+            return            
         elif self.dying or self.change_y <= -1:
             self.texture = self.fall_texture_pair[self.character_face_direction]
             return
@@ -111,6 +112,7 @@ class Item(arcade.Sprite):
         # Where we are going
         self.change_x = 0
         self.change_y = 0
+        self.hit_box = [[-18, -18], [-18, 18], [18, 18], [18, -18]]
 
     def update(self):
         # Move the rectangle

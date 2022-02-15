@@ -1,4 +1,5 @@
 import arcade
+from sprites import PlayerCharacter
 from sprites import Item
 
 
@@ -36,6 +37,9 @@ class Level_2(BaseLevel):
 
     def update(self):
         self.item.update()
+        if self.physics_engine.player_sprite.collides_with_sprite(self.item):
+            self.physics_engine.player_sprite.die()
 
     def draw(self):
         self.item.draw()
+        self.item.draw_hit_box()
