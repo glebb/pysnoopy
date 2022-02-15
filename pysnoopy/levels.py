@@ -37,7 +37,7 @@ class Level_2(BaseLevel):
 
     def update(self):
         self.item.update()
-        if self.physics_engine.player_sprite.collides_with_sprite(self.item):
+        if self.physics_engine.player_sprite.collides_with_sprite(self.item) or self.physics_engine.player_sprite.dying:
             self.physics_engine.player_sprite.die()
 
     def draw(self):

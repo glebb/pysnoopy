@@ -77,7 +77,7 @@ class GameView(arcade.View):
         self.physics_engine.update()
         self.physics_engine.player_sprite.update_animation(delta_time)
         self.level.update()
-
+        
         if self.physics_engine.player_sprite.jumping:
             if self.physics_engine.can_jump():
                 self.physics_engine.player_sprite.jumping = False
@@ -102,8 +102,7 @@ class GameView(arcade.View):
             self.physics_engine.player_sprite.die()
 
         if (
-            self.physics_engine.player_sprite.top
-            < -self.physics_engine.player_sprite.height / 2
+            self.physics_engine.player_sprite.center_y < 200
         ):
             self.setup()
 
