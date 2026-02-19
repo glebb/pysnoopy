@@ -1,11 +1,13 @@
 import arcade
 
-from globals import (
+from .globals import (
     CHARACTER_SCALING,
     LEFT_FACING,
+    PLAYER_JUMP_SPEED,
+    PLAYER_START_X,
+    PLAYER_START_Y,
     RIGHT_FACING,
     SCREEN_WIDTH,
-    TILE_SCALING,
     SCREEN_HEIGHT,
 )
 
@@ -21,7 +23,6 @@ class PlayerCharacter(arcade.Sprite):
 
         self.jumping = False
         self.dying = False
-        self.should_stop = False
 
         main_path = "../assets/images/"
         self.idle_texture_pair = load_texture_pair(f"{main_path}snoopy1.png")
@@ -34,21 +35,50 @@ class PlayerCharacter(arcade.Sprite):
             self.walk_textures.append(texture)
 
         self.texture = self.idle_texture_pair[0]
-
-        self.hit_box = self.texture.hit_box_points
+        self.direction_hit_boxes = {
+            RIGHT_FACING: self._build_scaled_hit_box(self.idle_texture_pair[RIGHT_FACING]),
+            LEFT_FACING: self._build_scaled_hit_box(self.idle_texture_pair[LEFT_FACING]),
+        }
+        self.hit_box = arcade.hitbox.RotatableHitBox(
+            self.direction_hit_boxes[self.character_face_direction]
+        )
 
         self.change_x = 0
         self.update_walk = 0
 
         # Some defaults to place character
-        self.center_x = 126 * TILE_SCALING
-        self.center_y = self.height * 1.25 - 10
+        self.center_x = PLAYER_START_X
+        self.center_y = PLAYER_START_Y
+
+    def _set_texture(self, texture):
+        if self.texture is texture:
+            return
+        self.texture = texture
+        self._sync_hit_box_with_direction()
+
+    def _build_scaled_hit_box(self, texture) -> list[tuple[float, float]]:
+        scale = self.scale
+        if isinstance(scale, tuple):
+            scale_x = float(scale[0])
+            scale_y = float(scale[1])
+        else:
+            scale_x = float(scale)
+            scale_y = float(scale)
+        return [
+            (point[0] * scale_x, point[1] * scale_y)
+            for point in texture.hit_box_points
+        ]
+
+    def _sync_hit_box_with_direction(self):
+        self.hit_box = arcade.hitbox.RotatableHitBox(
+            self.direction_hit_boxes[self.character_face_direction]
+        )
 
     def die(self):
         self.dying = True
-        self.set_hit_box([[-0, -0], [0, -0], [0, 0]])
+        self.hit_box = arcade.hitbox.RotatableHitBox([(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)])
         self.change_x = 0
-        self.change_y = -0.5
+        self.change_y = min(self.change_y, -PLAYER_JUMP_SPEED)
         
     def update_animation(self, delta_time: float = 1 / 60):
         # Figure out if we need to flip face left or right
@@ -57,17 +87,21 @@ class PlayerCharacter(arcade.Sprite):
         elif self.change_x > 0 and self.character_face_direction == LEFT_FACING:
             self.character_face_direction = RIGHT_FACING
 
-        # Jumping animation
-        if self.change_y >= 0.2:
-            self.texture = self.walk_textures[2][self.character_face_direction]
-            return            
-        elif self.dying or self.change_y <= -1:
-            self.texture = self.fall_texture_pair[self.character_face_direction]
+        if self.dying:
+            self._set_texture(self.fall_texture_pair[self.character_face_direction])
+            return
+
+        # Jumping/falling animation while airborne
+        if self.jumping:
+            if self.change_y >= 0:
+                self._set_texture(self.jump_texture_pair[self.character_face_direction])
+            else:
+                self._set_texture(self.fall_texture_pair[self.character_face_direction])
             return
 
         # Idle animation
         if self.change_x == 0:
-            self.texture = self.idle_texture_pair[self.character_face_direction]
+            self._set_texture(self.idle_texture_pair[self.character_face_direction])
             return
 
         # Walking animation
@@ -75,9 +109,9 @@ class PlayerCharacter(arcade.Sprite):
             self.cur_texture += 1
             if self.cur_texture > 2:
                 self.cur_texture = 0
-            self.texture = self.walk_textures[self.cur_texture][
-                self.character_face_direction
-            ]
+            self._set_texture(
+                self.walk_textures[self.cur_texture][self.character_face_direction]
+            )
             self.update_walk = 0
         self.update_walk += 1
 
@@ -86,9 +120,10 @@ def load_texture_pair(filename):
     """
     Load a texture pair, with the second being a mirror image.
     """
+    texture = arcade.load_texture(filename)
     return [
-        arcade.load_texture(filename),
-        arcade.load_texture(filename, flipped_horizontally=True),
+        texture,
+        texture.flip_left_right(),
     ]
 
 
@@ -111,7 +146,9 @@ class Item(arcade.Sprite):
         # Where we are going
         self.change_x = 0
         self.change_y = 0
-        self.hit_box = [[-20, -20], [-20, 20], [20, 20], [20, -20]]
+        self.hit_box = arcade.hitbox.RotatableHitBox(
+            [(-20, -20), (-20, 20), (20, 20), (20, -20)]
+        )
 
     def update(self):
         # Move the rectangle
@@ -132,6 +169,10 @@ class Item(arcade.Sprite):
 
     def draw(self):
         # Draw the rectangle
-        arcade.draw_rectangle_filled(
-            self.center_x, self.center_y, RECT_WIDTH, RECT_HEIGHT, RECT_COLOR
+        arcade.draw_lbwh_rectangle_filled(
+            self.center_x - RECT_WIDTH / 2,
+            self.center_y - RECT_HEIGHT / 2,
+            RECT_WIDTH,
+            RECT_HEIGHT,
+            RECT_COLOR,
         )
