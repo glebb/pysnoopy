@@ -322,7 +322,7 @@ class GameView(arcade.View):
         if callable(draw_scene_hit_boxes):
             draw_scene_hit_boxes()
             return
-        for sprite_list in self.scene.sprite_lists:
+        for sprite_list in getattr(self.scene, "sprite_lists", []):
             draw_hit_boxes = getattr(sprite_list, "draw_hit_boxes", None)
             if callable(draw_hit_boxes):
                 draw_hit_boxes()
