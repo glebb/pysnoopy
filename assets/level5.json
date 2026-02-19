@@ -2058,20 +2058,20 @@
       {
        "name": "speed_x",
        "type": "float",
-       "value": 2.2
+       "value": 2.8
       },
       {
        "name": "speed_y",
        "type": "float",
-       "value": 2.6
+       "value": 2.5
       }
      ],
      "rotation": 0,
      "type": "",
      "visible": true,
-     "width": 22,
-     "x": 108,
-     "y": 188
+     "width": 24,
+     "x": 206,
+     "y": 190
     },
     {
      "height": 24,
@@ -2081,43 +2081,20 @@
       {
        "name": "speed_x",
        "type": "float",
-       "value": -2.4
+       "value": -2.6
       },
       {
        "name": "speed_y",
        "type": "float",
-       "value": 2.8
+       "value": 3.0
       }
      ],
      "rotation": 0,
      "type": "",
      "visible": true,
-     "width": 26,
-     "x": 286,
-     "y": 178
-    },
-    {
-     "height": 24,
-     "id": 5,
-     "name": "moving_hazard",
-     "properties": [
-      {
-       "name": "speed_x",
-       "type": "float",
-       "value": 2.5
-      },
-      {
-       "name": "speed_y",
-       "type": "float",
-       "value": -2.4
-      }
-     ],
-     "rotation": 0,
-     "type": "",
-     "visible": true,
-     "width": 22,
-     "x": 412,
-     "y": 186
+     "width": 24,
+     "x": 362,
+     "y": 172
     }
    ],
    "opacity": 1,
@@ -2128,7 +2105,7 @@
   }
  ],
  "nextlayerid": 6,
- "nextobjectid": 6,
+ "nextobjectid": 5,
  "orientation": "orthogonal",
  "renderorder": "right-down",
  "tiledversion": "1.7.2",

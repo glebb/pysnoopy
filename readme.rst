@@ -3,6 +3,9 @@ pySNOOPY
 
 Remake of classic C64 game Snoopy using Python + arcade.
 
+Current implementation includes levels 1-6 from the original 20-level loop,
+with progression wrapping back to level 1 at higher speed.
+
 Setup
 -----
 
@@ -48,6 +51,13 @@ Recommended workflow:
 	  - Optional custom properties: ``speed_x`` and ``speed_y`` (numbers).
 
 5. Save the new map as ``assets/levelN.json``.
+
+Fidelity workflow for C64 remake levels:
+
+1. Use C64-Wiki level screenshots and longplay footage as reference.
+2. Recreate platform gaps and hazard lanes first (gameplay-critical geometry).
+3. Match hazard count/speed rhythm with ``moving_hazard`` objects.
+4. Add decorative foreground details last.
 
 To add a new level to the game loop:
 

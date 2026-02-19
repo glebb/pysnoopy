@@ -29,6 +29,15 @@
 - Level progression currently advances when player reaches the right side and wraps to level 1 after the last level, increasing speed multiplier.
 - Level-specific requirements belong in `LevelSpec.required_object_names` (for example, level 2 requires `moving_hazard`).
 
+## Level Reference Workflow (Self Instructions)
+- Before changing any level map, check original C64 references first, then design.
+- Primary source: C64-Wiki Snoopy page (`https://www.c64-wiki.com/wiki/Snoopy`) and its per-level GIFs (`SnoopyLevel01.gif` ... `SnoopyLevel02.gif`).
+- Secondary source: longplay footage listed on C64-Wiki (Archive.org, YouTube, C64-longplays). Use it to verify movement rhythm and hazard timing.
+- If a source is blocked (for example login-gated pages), use available mirrors from C64-Wiki links and continue with the best accessible evidence.
+- Recreate in this order: 1) floor/pit silhouette, 2) traversal/bridge structure, 3) hazard count + approximate speed lanes, 4) foreground/decorative details.
+- Keep gameplay logic unchanged unless explicitly requested: right-edge completion remains the progression rule.
+- After edits, always run `python -m pysnoopy.validate_levels`; if needed, run `--strict` and report any pre-existing warnings separately from new issues.
+
 ## Integration Points
 - Core external dependency is Arcade (`arcade==3.3.3`) for rendering, physics, and audio.
 - Tiled maps are loaded through `arcade.load_tilemap(...)`; object layers are parsed from JSON in `GameView`.

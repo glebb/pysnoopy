@@ -54,4 +54,19 @@ def get_default_levels() -> list[LevelSpec]:
             required_object_names=("moving_hazard",),
         ),
         LevelSpec(name="Level 3", map_path="../assets/level3.json"),
+        LevelSpec(
+            name="Level 4",
+            map_path="../assets/level4.json",
+            required_object_names=("moving_hazard",),
+        ),
+        LevelSpec(
+            name="Level 5",
+            map_path="../assets/level5.json",
+            required_object_names=("moving_hazard",),
+        ),
+        LevelSpec(
+            name="Level 6",
+            map_path="../assets/level6.json",
+            required_object_names=("moving_hazard",),
+        ),
     ]
