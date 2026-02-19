@@ -1,3 +1,5 @@
+import json
+
 from .globals import (
     TILE_SCALING,
     PLAYER_GROUND_OFFSET,
@@ -11,8 +13,10 @@ from .globals import (
     SHOW_HITBOXES,
     RUN_SPEED_MULTIPLIER_STEP,
 )
-from .levels import Level_1, Level_2, Level_3
-from .sprites import PlayerCharacter
+from .game_state import GameState
+from .level_validation import validate_level_file
+from .levels import LevelHook, LevelSpec, get_default_levels
+from .sprites import Item, PlayerCharacter
 
 import random
 import types
@@ -22,8 +26,9 @@ import arcade
 
 
 class GameView(arcade.View):
-    def __init__(self, start_level: int = 1):
+    def __init__(self, start_level: int = 1, game_state: GameState | None = None):
         super().__init__()
+        self.game_state = game_state if game_state is not None else GameState()
 
         self.jump_sound = arcade.load_sound("../assets/sound/jump.wav", streaming=False)
         self.fall_sound = arcade.load_sound("../assets/sound/fall.wav", streaming=False)
@@ -51,11 +56,21 @@ class GameView(arcade.View):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_committed_change_x = 0
-        self.run_speed_multiplier = 1.0
+        self.run_speed_multiplier = self.game_state.run_speed_multiplier
+        self.world_bounds: tuple[float, float, float, float] = (
+            0.0,
+            float(SCREEN_WIDTH),
+            0.0,
+            float(SCREEN_HEIGHT),
+        )
+        self.level_exit_zone: tuple[float, float, float, float] | None = None
 
-        self.levels = (Level_1(), Level_2(), Level_3())
-        start_index = max(0, min(len(self.levels) - 1, start_level - 1))
-        self.level = self.levels[start_index]
+        self.level_specs: list[LevelSpec] = get_default_levels()
+        self.level_index = max(0, min(len(self.level_specs) - 1, start_level - 1))
+        self.level_spec = self.level_specs[self.level_index]
+        self.level: LevelHook = self.level_spec.create_hook()
+        self._validated_level_paths: set[str] = set()
+        self.moving_hazards: list[Item] = []
 
     @property
     def player_sprite(self) -> PlayerCharacter:
@@ -66,9 +81,9 @@ class GameView(arcade.View):
         self.left_pressed = False
         self.right_pressed = False
         self.jump_committed_change_x = 0
-        self.run_speed_multiplier = float(
-            getattr(self.window, "run_speed_multiplier", self.run_speed_multiplier)
-        )
+        self.level_spec = self.level_specs[self.level_index]
+        self.level = self.level_spec.create_hook()
+        self.run_speed_multiplier = float(self.game_state.run_speed_multiplier)
         player_sprite = PlayerCharacter()
         player_sprite.center_x = PLAYER_START_X
 
@@ -84,10 +99,56 @@ class GameView(arcade.View):
                 "use_spatial_hash": False,
             },
         }
-        self.tile_map = arcade.load_tilemap(self.level.map, TILE_SCALING, layer_options)
+        if self.level_spec.map_path not in self._validated_level_paths:
+            validation_result = validate_level_file(
+                level_name=self.level_spec.name,
+                map_path=self.level_spec.map_path,
+                spawn_object_name=self.level_spec.spawn_object_name,
+                exit_object_name=self.level_spec.exit_object_name,
+                moving_hazard_object_name=self.level_spec.moving_hazard_object_name,
+                required_object_names=self.level_spec.required_object_names,
+            )
+            if not validation_result.is_valid:
+                raise RuntimeError("\n".join(validation_result.errors))
+            for warning in validation_result.warnings:
+                print(f"[level warning] {warning}")
+            self._validated_level_paths.add(self.level_spec.map_path)
+
+        self.tile_map = arcade.load_tilemap(
+            self.level_spec.map_path, TILE_SCALING, layer_options
+        )
 
         self.scene = arcade.Scene.from_tilemap(self.tile_map)
-        self._snap_player_to_ground(player_sprite)
+        self.world_bounds = (
+            0.0,
+            float(self.tile_map.width * self.tile_map.tile_width * TILE_SCALING),
+            0.0,
+            float(self.tile_map.height * self.tile_map.tile_height * TILE_SCALING),
+        )
+
+        (
+            spawn_point,
+            spawn_should_snap_to_ground,
+            self.level_exit_zone,
+            hazard_specs,
+        ) = self._load_level_objects_from_map()
+        self.moving_hazards = []
+        for hazard_spec in hazard_specs:
+            hazard = Item(width=hazard_spec[2], height=hazard_spec[3])
+            hazard.center_x = hazard_spec[0]
+            hazard.center_y = hazard_spec[1]
+            hazard.change_x = hazard_spec[4] * self.run_speed_multiplier
+            hazard.change_y = hazard_spec[5] * self.run_speed_multiplier
+            hazard.set_bounds(self.world_bounds)
+            self.moving_hazards.append(hazard)
+
+        if spawn_point is None:
+            self._snap_player_to_ground(player_sprite)
+        else:
+            player_sprite.center_x, player_sprite.center_y = spawn_point
+            if spawn_should_snap_to_ground:
+                self._snap_player_to_ground(player_sprite)
+
         self.scene.add_sprite_list_before("Player", "foreground")
         self.scene.add_sprite("Player", player_sprite)
         
@@ -97,7 +158,7 @@ class GameView(arcade.View):
             walls=self.scene["ground"],
         )
         self.level.set_speed_multiplier(self.run_speed_multiplier)
-        self.level.setup(self.physics_engine)
+        self.level.setup(self.physics_engine, self.world_bounds)
 
     def _current_move_speed(self):
         return PLAYER_MOVEMENT_SPEED * self.run_speed_multiplier
@@ -109,24 +170,7 @@ class GameView(arcade.View):
         return GRAVITY * (self.run_speed_multiplier ** 2)
 
     def _apply_music_speed(self):
-        if self.window is None:
-            return
-        music_sound = getattr(self.window, "music_sound", None)
-        music_player = getattr(self.window, "music_player", None)
-        if music_sound is None:
-            return
-        if music_player is not None:
-            music_sound.stop(player=music_player)
-        setattr(
-            self.window,
-            "music_player",
-            arcade.play_sound(
-                music_sound,
-                volume=0.5,
-                loop=True,
-                speed=self.run_speed_multiplier,
-            ),
-        )
+        self.game_state.restart_music(speed=self.run_speed_multiplier)
 
     def _stop_step_sound(self):
         if self.step_sound_player and self.step_sound.is_playing(player=self.step_sound_player):
@@ -179,18 +223,162 @@ class GameView(arcade.View):
             self._snap_player_to_ground(self.player_sprite)
         print(f"PLAYER_GROUND_OFFSET={self.player_ground_offset}")
 
+    def _read_object_property(self, obj: dict, property_name: str, default: float) -> float:
+        properties = obj.get("properties", [])
+        if not isinstance(properties, list):
+            return default
+        for item in properties:
+            if not isinstance(item, dict):
+                continue
+            if item.get("name") != property_name:
+                continue
+            try:
+                return float(item.get("value", default))
+            except (TypeError, ValueError):
+                return default
+        return default
+
+    def _load_level_objects_from_map(
+        self,
+    ) -> tuple[
+        tuple[float, float] | None,
+        bool,
+        tuple[float, float, float, float] | None,
+        list[tuple[float, float, float, float, float, float]],
+    ]:
+        try:
+            with open(self.level_spec.map_path, "r", encoding="utf-8") as file_handle:
+                raw_map = json.load(file_handle)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None, False, None, []
+
+        map_height = (
+            float(raw_map.get("height", 0))
+            * float(raw_map.get("tileheight", 0))
+            * TILE_SCALING
+        )
+        layers = raw_map.get("layers", [])
+
+        spawn_point: tuple[float, float] | None = None
+        spawn_should_snap_to_ground = False
+        exit_zone: tuple[float, float, float, float] | None = None
+        moving_hazard_specs: list[tuple[float, float, float, float, float, float]] = []
+
+        for layer in layers:
+            if not isinstance(layer, dict) or layer.get("type") != "objectgroup":
+                continue
+
+            for obj in layer.get("objects", []):
+                if not isinstance(obj, dict):
+                    continue
+                object_name = obj.get("name")
+                x = float(obj.get("x", 0.0)) * TILE_SCALING
+                y = float(obj.get("y", 0.0)) * TILE_SCALING
+
+                if object_name == self.level_spec.spawn_object_name:
+                    spawn_point = (x, map_height - y)
+                    spawn_should_snap_to_ground = bool(obj.get("point", False))
+                    continue
+
+                if object_name == self.level_spec.exit_object_name:
+                    width = float(obj.get("width", 0.0)) * TILE_SCALING
+                    height = float(obj.get("height", 0.0)) * TILE_SCALING
+                    if width <= 0 or height <= 0:
+                        continue
+                    exit_zone = (
+                        x + width / 2,
+                        map_height - y - height / 2,
+                        width,
+                        height,
+                    )
+
+                if object_name == self.level_spec.moving_hazard_object_name:
+                    width = max(
+                        1.0,
+                        float(obj.get("width", 50.0)) * TILE_SCALING,
+                    )
+                    height = max(
+                        1.0,
+                        float(obj.get("height", 50.0)) * TILE_SCALING,
+                    )
+                    speed_x = self._read_object_property(obj, "speed_x", 2.0)
+                    speed_y = self._read_object_property(obj, "speed_y", 3.0)
+                    moving_hazard_specs.append(
+                        (
+                            x + width / 2,
+                            map_height - y - height / 2,
+                            width,
+                            height,
+                            speed_x,
+                            speed_y,
+                        )
+                    )
+
+        return spawn_point, spawn_should_snap_to_ground, exit_zone, moving_hazard_specs
+
+    def _draw_scene_hit_boxes(self):
+        assert self.scene is not None
+        draw_scene_hit_boxes = getattr(self.scene, "draw_hit_boxes", None)
+        if callable(draw_scene_hit_boxes):
+            draw_scene_hit_boxes()
+            return
+        for sprite_list in self.scene.sprite_lists:
+            draw_hit_boxes = getattr(sprite_list, "draw_hit_boxes", None)
+            if callable(draw_hit_boxes):
+                draw_hit_boxes()
+
+    def _is_exit_reached(self) -> bool:
+        if self.player_sprite.dying:
+            return False
+
+        return self.player_sprite.left >= SCREEN_WIDTH
+
+    def _clamp_player_to_world(self):
+        if self.player_sprite.dying:
+            return
+
+        left_bound = self.world_bounds[0] - self.player_sprite.width / 2
+        soft_zone_width = 48.0
+        if (
+            self.player_sprite.left < left_bound + soft_zone_width
+            and self.player_sprite.change_x < 0
+        ):
+            distance_to_left = max(0.0, self.player_sprite.left - left_bound)
+            damping = max(0.2, min(1.0, distance_to_left / soft_zone_width))
+            self.player_sprite.change_x *= damping
+
+        if self.player_sprite.left < left_bound:
+            self.player_sprite.left = left_bound
+            self.player_sprite.change_x = max(0.0, self.player_sprite.change_x)
+            if not self.player_sprite.jumping:
+                self._snap_player_to_ground(self.player_sprite)
+
+    def _advance_level(self):
+        if self.level_index >= len(self.level_specs) - 1:
+            self.level_index = 0
+            self.run_speed_multiplier *= RUN_SPEED_MULTIPLIER_STEP
+            self.game_state.run_speed_multiplier = self.run_speed_multiplier
+            self._apply_music_speed()
+        else:
+            self.level_index += 1
+        self.setup()
+
     def on_draw(self):
         assert self.camera is not None
         assert self.scene is not None
         self.clear()
         self.camera.use()
         self.scene.draw()
+        for hazard in self.moving_hazards:
+            hazard.draw()
         self.level.draw()
         if self.show_hitboxes:
-            self.scene.draw_hit_boxes()
+            self._draw_scene_hit_boxes()
+            for hazard in self.moving_hazards:
+                hazard.draw_hit_box()
             self.level.draw_hit_boxes()
         self.debug_text.text = (
-            f"OFFSET: {self.player_ground_offset}  HITBOXES: {'ON' if self.show_hitboxes else 'OFF'}  SPEED: x{self.run_speed_multiplier:.2f}"
+            f"{self.level_spec.name}  OFFSET: {self.player_ground_offset}  HITBOXES: {'ON' if self.show_hitboxes else 'OFF'}  SPEED: x{self.run_speed_multiplier:.2f}"
         )
         self.debug_text.draw()
 
@@ -204,7 +392,11 @@ class GameView(arcade.View):
         else:
             self.physics_engine.update()
 
+        self._clamp_player_to_world()
+
         self.player_sprite.update_animation(delta_time)
+        for hazard in self.moving_hazards:
+            hazard.update()
         self.level.update()
         
         if self.player_sprite.jumping:
@@ -225,31 +417,26 @@ class GameView(arcade.View):
                     self.fall_sound, loop=False
                 )
 
+        obstacle_list = self.tile_map.sprite_lists.get("obstacles")
         if (
             not self.player_sprite.dying
-            and arcade.check_for_collision_with_list(
-                self.player_sprite, self.tile_map.sprite_lists["obstacles"]
-            )
+            and obstacle_list is not None
+            and arcade.check_for_collision_with_list(self.player_sprite, obstacle_list)
         ):
             self.player_sprite.die()
+        elif not self.player_sprite.dying:
+            for hazard in self.moving_hazards:
+                if self.player_sprite.collides_with_sprite(hazard):
+                    self.player_sprite.die()
+                    break
 
         if self.player_sprite.dying and self.player_sprite.top < 0:
             self.setup()
         elif not self.player_sprite.dying and self.player_sprite.center_y < 200:
             self.setup()
 
-        if self.player_sprite.left > SCREEN_WIDTH:
-            index = self.levels.index(self.level)
-            if index >= len(self.levels) - 1:
-                index = 0
-                self.run_speed_multiplier *= RUN_SPEED_MULTIPLIER_STEP
-                if self.window is not None:
-                    setattr(self.window, "run_speed_multiplier", self.run_speed_multiplier)
-                self._apply_music_speed()
-            else:
-                index += 1
-            self.level = self.levels[index]
-            self.setup()
+        if self._is_exit_reached():
+            self._advance_level()
 
     def on_key_press(self, symbol, modifiers):
         assert self.physics_engine is not None
@@ -310,8 +497,9 @@ class GameView(arcade.View):
 
 
 class TitleView(arcade.View):
-    def __init__(self):
+    def __init__(self, game_state: GameState | None = None):
         super().__init__()
+        self.game_state = game_state if game_state is not None else GameState()
 
         self.letters: arcade.SpriteList | None = None
         self.snoopy_sprite: PlayerCharacter | None = None
@@ -388,22 +576,11 @@ class TitleView(arcade.View):
 
     def on_key_press(self, symbol, modifiers):
         if symbol == arcade.key.SPACE:
-            start_level = int(getattr(self.window, "start_level", 1))
-            level1 = GameView(start_level=start_level)
+            start_level = int(self.game_state.start_level)
+            level1 = GameView(start_level=start_level, game_state=self.game_state)
             level1.run_speed_multiplier = 1.0
-            if self.window is not None:
-                setattr(self.window, "run_speed_multiplier", 1.0)
-                music_sound = getattr(self.window, "music_sound", None)
-                music_player = getattr(self.window, "music_player", None)
-                if music_sound is not None and music_player is not None:
-                    music_sound.stop(player=music_player)
-                    setattr(
-                        self.window,
-                        "music_player",
-                        arcade.play_sound(
-                        music_sound, volume=0.5, loop=True, speed=1.0
-                        ),
-                    )
+            self.game_state.run_speed_multiplier = 1.0
+            self.game_state.restart_music(speed=1.0)
             level1.setup()
             self.window.show_view(level1)
 

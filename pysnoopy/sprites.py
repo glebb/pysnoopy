@@ -1,4 +1,5 @@
 import arcade
+from typing import TypeAlias
 
 from .globals import (
     CHARACTER_SCALING,
@@ -127,14 +128,19 @@ def load_texture_pair(filename):
     ]
 
 
-# Rectangle info
-RECT_WIDTH = 50
-RECT_HEIGHT = 50
-RECT_COLOR = arcade.color.DARK_BROWN
+DEFAULT_ITEM_WIDTH = 50
+DEFAULT_ITEM_HEIGHT = 50
+DEFAULT_ITEM_COLOR = arcade.color.DARK_BROWN
+ColorTuple: TypeAlias = tuple[int, int, int] | tuple[int, int, int, int]
 
 
 class Item(arcade.Sprite):
-    def __init__(self):
+    def __init__(
+        self,
+        width: float = DEFAULT_ITEM_WIDTH,
+        height: float = DEFAULT_ITEM_HEIGHT,
+        color: ColorTuple = DEFAULT_ITEM_COLOR,
+    ):
         super().__init__()
 
         # Set up attribute variables
@@ -146,33 +152,71 @@ class Item(arcade.Sprite):
         # Where we are going
         self.change_x = 0
         self.change_y = 0
+        self.rect_width = float(width)
+        self.rect_height = float(height)
+        self.rect_color = color
         self.hit_box = arcade.hitbox.RotatableHitBox(
-            [(-20, -20), (-20, 20), (20, 20), (20, -20)]
+            self._build_rect_hit_box(self.rect_width, self.rect_height)
+        )
+        self.bounds: tuple[float, float, float, float] = (
+            self.rect_width / 2,
+            SCREEN_WIDTH - self.rect_width / 2,
+            self.rect_height / 2,
+            SCREEN_HEIGHT - self.rect_height / 2,
+        )
+
+    def _build_rect_hit_box(self, width: float, height: float):
+        half_width = width / 2
+        half_height = height / 2
+        return [
+            (-half_width, -half_height),
+            (-half_width, half_height),
+            (half_width, half_height),
+            (half_width, -half_height),
+        ]
+
+    def set_size(self, width: float, height: float):
+        self.rect_width = max(1.0, float(width))
+        self.rect_height = max(1.0, float(height))
+        self.hit_box = arcade.hitbox.RotatableHitBox(
+            self._build_rect_hit_box(self.rect_width, self.rect_height)
+        )
+
+    def set_bounds(self, bounds: tuple[float, float, float, float] | None):
+        if bounds is None:
+            return
+        left, right, bottom, top = bounds
+        self.bounds = (
+            left + self.rect_width / 2,
+            right - self.rect_width / 2,
+            bottom + self.rect_height / 2,
+            top - self.rect_height / 2,
         )
 
     def update(self):
         # Move the rectangle
         self.center_x += self.change_x
         self.center_y += self.change_y
+        left_bound, right_bound, bottom_bound, top_bound = self.bounds
         # Check if we need to bounce of right edge
-        if self.center_x > SCREEN_WIDTH - RECT_WIDTH / 2:
+        if self.center_x > right_bound:
             self.change_x *= -1
         # Check if we need to bounce of top edge
-        if self.center_y > SCREEN_HEIGHT - RECT_HEIGHT / 2:
+        if self.center_y > top_bound:
             self.change_y *= -1
         # Check if we need to bounce of left edge
-        if self.center_x < RECT_WIDTH / 2:
+        if self.center_x < left_bound:
             self.change_x *= -1
         # Check if we need to bounce of bottom edge
-        if self.center_y < RECT_HEIGHT / 2:
+        if self.center_y < bottom_bound:
             self.change_y *= -1
 
     def draw(self):
         # Draw the rectangle
         arcade.draw_lbwh_rectangle_filled(
-            self.center_x - RECT_WIDTH / 2,
-            self.center_y - RECT_HEIGHT / 2,
-            RECT_WIDTH,
-            RECT_HEIGHT,
-            RECT_COLOR,
+            self.center_x - self.rect_width / 2,
+            self.center_y - self.rect_height / 2,
+            self.rect_width,
+            self.rect_height,
+            self.rect_color,
         )

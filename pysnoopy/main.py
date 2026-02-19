@@ -13,9 +13,11 @@ if __package__ in (None, ""):
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
     from pysnoopy.globals import SCREEN_HEIGHT, SCREEN_TITLE, SCREEN_WIDTH
+    from pysnoopy.game_state import GameState
     from pysnoopy.views import GameView, TitleView
 else:
     from .globals import SCREEN_HEIGHT, SCREEN_TITLE, SCREEN_WIDTH
+    from .game_state import GameState
     from .views import GameView, TitleView
 
 
@@ -39,29 +41,18 @@ def main(argv: list[str] | None = None):
     os.chdir(file_path)
 
     window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-    setattr(window, "run_speed_multiplier", 1.0)
-    setattr(window, "start_level", args.start_level)
+    game_state = GameState(start_level=args.start_level, run_speed_multiplier=1.0)
 
     start_view: arcade.View
     if args.start_level > 1:
-        start_view = GameView(start_level=args.start_level)
+        start_view = GameView(game_state=game_state, start_level=args.start_level)
     else:
-        start_view = TitleView()
+        start_view = TitleView(game_state=game_state)
 
     window.show_view(start_view)
     start_view.setup()
-    music_sound = arcade.load_sound('../assets/sound/entertainer.wav', streaming=False)
-    setattr(window, "music_sound", music_sound)
-    setattr(
-        window,
-        "music_player",
-        arcade.play_sound(
-        music_sound,
-        volume=0.5,
-        loop=True,
-        speed=float(getattr(window, "run_speed_multiplier", 1.0)),
-    ),
-    )
+    game_state.music_sound = arcade.load_sound('../assets/sound/entertainer.wav', streaming=False)
+    game_state.restart_music()
     arcade.set_background_color(arcade.color.WHITE_SMOKE)
 
     arcade.run()

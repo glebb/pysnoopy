@@ -1,16 +1,12 @@
 import arcade
-from typing import Optional, cast
+from dataclasses import dataclass
+from typing import Callable, Optional
 
-from .sprites import PlayerCharacter
-from .sprites import Item
-
-
-class BaseLevel:
+class LevelHook:
     def __init__(self):
-        self.name = "Name"
-        self.map = "map"
         self.physics_engine: Optional[arcade.PhysicsEnginePlatformer] = None
         self.speed_multiplier = 1.0
+        self.level_bounds: tuple[float, float, float, float] | None = None
 
     def update(self):
         pass
@@ -21,60 +17,41 @@ class BaseLevel:
     def draw_hit_boxes(self):
         pass
 
-    def setup(self, physics_engine):
+    def setup(
+        self,
+        physics_engine: arcade.PhysicsEnginePlatformer,
+        level_bounds: tuple[float, float, float, float] | None = None,
+    ):
         self.physics_engine = physics_engine
+        self.level_bounds = level_bounds
 
     def set_speed_multiplier(self, multiplier: float):
         self.speed_multiplier = multiplier
 
 
-class Level_1(BaseLevel):
-    def __init__(self):
-        super().__init__()
-        self.name = "Level 1"
-        self.map = "../assets/level1.json"
+@dataclass(frozen=True)
+class LevelSpec:
+    name: str
+    map_path: str
+    spawn_object_name: str = "spawn"
+    exit_object_name: str = "exit"
+    moving_hazard_object_name: str = "moving_hazard"
+    required_object_names: tuple[str, ...] = ()
+    hook_factory: Callable[[], LevelHook] | None = None
+
+    def create_hook(self) -> LevelHook:
+        if self.hook_factory is None:
+            return LevelHook()
+        return self.hook_factory()
 
 
-class Level_2(BaseLevel):
-    def __init__(self):
-        super().__init__()
-        self.name = "Level 2"
-        self.map = "../assets/level2.json"
-        self.item = Item()
-        self.item_start_x = 200
-        self.item_start_y = 300
-        self.item_speed_x = 2
-        self.item_speed_y = 3
-        self.item.center_x = self.item_start_x
-        self.item.center_y = self.item_start_y
-        self.item.change_x = self.item_speed_x
-        self.item.change_y = self.item_speed_y
-
-    def setup(self, physics_engine):
-        super().setup(physics_engine)
-        self.item.center_x = self.item_start_x
-        self.item.center_y = self.item_start_y
-        self.item.change_x = self.item_speed_x * self.speed_multiplier
-        self.item.change_y = self.item_speed_y * self.speed_multiplier
-
-    def update(self):
-        self.item.update()
-        if self.physics_engine is None:
-            return
-
-        player_sprite = cast(PlayerCharacter, self.physics_engine.player_sprite)
-        if player_sprite.collides_with_sprite(self.item):
-            player_sprite.die()
-
-    def draw(self):
-        self.item.draw()
-
-    def draw_hit_boxes(self):
-        self.item.draw_hit_box()
-
-
-class Level_3(BaseLevel):
-    def __init__(self):
-        super().__init__()
-        self.name = "Level 3"
-        self.map = "../assets/level3.json"
+def get_default_levels() -> list[LevelSpec]:
+    return [
+        LevelSpec(name="Level 1", map_path="../assets/level1.json"),
+        LevelSpec(
+            name="Level 2",
+            map_path="../assets/level2.json",
+            required_object_names=("moving_hazard",),
+        ),
+        LevelSpec(name="Level 3", map_path="../assets/level3.json"),
+    ]
