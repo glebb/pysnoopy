@@ -220,3 +220,83 @@ class Item(arcade.Sprite):
             self.rect_height,
             self.rect_color,
         )
+
+
+class TriangleHazard(arcade.Sprite):
+    def __init__(
+        self,
+        width: float = DEFAULT_ITEM_WIDTH,
+        height: float = DEFAULT_ITEM_HEIGHT,
+        color: ColorTuple = arcade.color.BLACK,
+    ):
+        super().__init__()
+
+        # Create a texture for the sprite so it renders correctly in a SpriteList
+        image = arcade.Texture.create_empty(
+            f"triangle_{width}_{height}_{color}",
+            (int(width), int(height))
+        ).image
+        
+        from PIL import ImageDraw
+        draw = ImageDraw.Draw(image)
+        draw.polygon(
+            [(0, height), (width / 2, 0), (width, height)],
+            fill=color
+        )
+        self.texture = arcade.Texture(image)
+        
+        self.center_x = 0
+        self.center_y = 0
+        self.change_x = 0
+        self.change_y = 0
+        self.rect_width = float(width)
+        self.rect_height = float(height)
+        self.rect_color = color
+        self.hit_box = arcade.hitbox.RotatableHitBox(
+            self._build_triangle_hit_box(self.rect_width, self.rect_height)
+        )
+        self.bounds: tuple[float, float, float, float] = (
+            self.rect_width / 2,
+            SCREEN_WIDTH - self.rect_width / 2,
+            self.rect_height / 2,
+            SCREEN_HEIGHT - self.rect_height / 2,
+        )
+
+    def _build_triangle_hit_box(self, width: float, height: float):
+        half_width = width / 2
+        half_height = height / 2
+        return [
+            (-half_width, -half_height),
+            (0, half_height),
+            (half_width, -half_height),
+        ]
+
+    def set_size(self, width: float, height: float):
+        self.rect_width = max(1.0, float(width))
+        self.rect_height = max(1.0, float(height))
+        self.hit_box = arcade.hitbox.RotatableHitBox(
+            self._build_triangle_hit_box(self.rect_width, self.rect_height)
+        )
+
+    def set_bounds(self, bounds: tuple[float, float, float, float] | None):
+        if bounds is None:
+            return
+        left, right, bottom, top = bounds
+        # Allow the hazard to fully exit the screen before wrapping
+        self.bounds = (
+            left - self.rect_width / 2,
+            right + self.rect_width / 2,
+            bottom + self.rect_height / 2,
+            top - self.rect_height / 2,
+        )
+
+    def update(self):
+        self.center_x += self.change_x
+        self.center_y += self.change_y
+        left_bound, right_bound, bottom_bound, top_bound = self.bounds
+        
+        # Wrap around horizontally
+        if self.change_x < 0 and self.center_x < left_bound:
+            self.center_x = right_bound
+        elif self.change_x > 0 and self.center_x > right_bound:
+            self.center_x = left_bound

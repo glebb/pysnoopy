@@ -25,7 +25,7 @@
 ## Project Conventions
 - Required Tiled tile layers are `ground`, `obstacles`, and `foreground`.
 - `spawn` and `exit` objects are optional but should exist; missing objects currently trigger warnings and fallback behavior.
-- `moving_hazard` objects must have positive size; optional `speed_x` and `speed_y` properties must be numeric.
+- `moving_hazard` objects can be rectangles (must have positive size) or polygons. Optional `speed_x` and `speed_y` properties must be numeric.
 - Level progression currently advances when player reaches the right side and wraps to level 1 after the last level, increasing speed multiplier.
 - Level-specific requirements belong in `LevelSpec.required_object_names` (for example, level 2 requires `moving_hazard`).
 
@@ -41,6 +41,7 @@
 ## Integration Points
 - Core external dependency is Arcade (`arcade==3.3.3`) for rendering, physics, and audio.
 - Tiled maps are loaded through `arcade.load_tilemap(...)`; object layers are parsed from JSON in `GameView`.
+- Hazards are drawn using `arcade.Scene` sprite lists to manage draw order (e.g., behind foreground fences but in front of the player).
 - Asset loading assumes current working directory is set by startup code in `pysnoopy/main.py`.
 
 ## Security

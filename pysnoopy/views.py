@@ -16,7 +16,7 @@ from .globals import (
 from .game_state import GameState
 from .level_validation import validate_level_file
 from .levels import LevelHook, LevelSpec, get_default_levels
-from .sprites import Item, PlayerCharacter
+from .sprites import Item, PlayerCharacter, TriangleHazard
 
 import random
 import types
@@ -55,6 +55,7 @@ class GameView(arcade.View):
         self.tile_map: arcade.TileMap | None = None
         self.left_pressed = False
         self.right_pressed = False
+        self.up_pressed = False
         self.jump_committed_change_x = 0
         self.run_speed_multiplier = self.game_state.run_speed_multiplier
         self.world_bounds: tuple[float, float, float, float] = (
@@ -70,7 +71,7 @@ class GameView(arcade.View):
         self.level_spec = self.level_specs[self.level_index]
         self.level: LevelHook = self.level_spec.create_hook()
         self._validated_level_paths: set[str] = set()
-        self.moving_hazards: list[Item] = []
+        self.moving_hazards: list[TriangleHazard] = []
 
     @property
     def player_sprite(self) -> PlayerCharacter:
@@ -80,6 +81,7 @@ class GameView(arcade.View):
     def setup(self):
         self.left_pressed = False
         self.right_pressed = False
+        self.up_pressed = False
         self.jump_committed_change_x = 0
         self.level_spec = self.level_specs[self.level_index]
         self.level = self.level_spec.create_hook()
@@ -134,7 +136,7 @@ class GameView(arcade.View):
         ) = self._load_level_objects_from_map()
         self.moving_hazards = []
         for hazard_spec in hazard_specs:
-            hazard = Item(width=hazard_spec[2], height=hazard_spec[3])
+            hazard = TriangleHazard(width=hazard_spec[2], height=hazard_spec[3])
             hazard.center_x = hazard_spec[0]
             hazard.center_y = hazard_spec[1]
             hazard.change_x = hazard_spec[4] * self.run_speed_multiplier
@@ -148,6 +150,10 @@ class GameView(arcade.View):
             player_sprite.center_x, player_sprite.center_y = spawn_point
             if spawn_should_snap_to_ground:
                 self._snap_player_to_ground(player_sprite)
+
+        self.scene.add_sprite_list_before("Hazards", "foreground")
+        for hazard in self.moving_hazards:
+            self.scene.add_sprite("Hazards", hazard)
 
         self.scene.add_sprite_list_before("Player", "foreground")
         self.scene.add_sprite("Player", player_sprite)
@@ -293,20 +299,33 @@ class GameView(arcade.View):
                     )
 
                 if object_name == self.level_spec.moving_hazard_object_name:
-                    width = max(
-                        1.0,
-                        float(obj.get("width", 50.0)) * TILE_SCALING,
-                    )
-                    height = max(
-                        1.0,
-                        float(obj.get("height", 50.0)) * TILE_SCALING,
-                    )
-                    speed_x = self._read_object_property(obj, "speed_x", 2.0)
-                    speed_y = self._read_object_property(obj, "speed_y", 3.0)
+                    if "polygon" in obj:
+                        # Calculate bounding box for polygon
+                        points = obj["polygon"]
+                        min_x = min(p.get("x", 0) for p in points)
+                        max_x = max(p.get("x", 0) for p in points)
+                        min_y = min(p.get("y", 0) for p in points)
+                        max_y = max(p.get("y", 0) for p in points)
+                        width = max(1.0, float(max_x - min_x) * TILE_SCALING)
+                        height = max(1.0, float(max_y - min_y) * TILE_SCALING)
+                        # Adjust x, y to be the center of the bounding box
+                        x += float(min_x + (max_x - min_x) / 2) * TILE_SCALING
+                        y += float(min_y + (max_y - min_y) / 2) * TILE_SCALING
+                    else:
+                        width = max(
+                            1.0,
+                            float(obj.get("width", 50.0)) * TILE_SCALING,
+                        )
+                        height = max(
+                            1.0,
+                            float(obj.get("height", 50.0)) * TILE_SCALING,
+                        )
+                    speed_x = self._read_object_property(obj, "speed_x", -2.0)
+                    speed_y = self._read_object_property(obj, "speed_y", 0.0)
                     moving_hazard_specs.append(
                         (
-                            x + width / 2,
-                            map_height - y - height / 2,
+                            x,
+                            map_height - y - 5.0,  # Lower the hazard slightly to remove gap
                             width,
                             height,
                             speed_x,
@@ -369,13 +388,9 @@ class GameView(arcade.View):
         self.clear()
         self.camera.use()
         self.scene.draw()
-        for hazard in self.moving_hazards:
-            hazard.draw()
         self.level.draw()
         if self.show_hitboxes:
             self._draw_scene_hit_boxes()
-            for hazard in self.moving_hazards:
-                hazard.draw_hit_box()
             self.level.draw_hit_boxes()
         self.debug_text.text = (
             f"{self.level_spec.name}  OFFSET: {self.player_ground_offset}  HITBOXES: {'ON' if self.show_hitboxes else 'OFF'}  SPEED: x{self.run_speed_multiplier:.2f}"
@@ -404,6 +419,14 @@ class GameView(arcade.View):
                 self.player_sprite.jumping = False
                 self.jump_committed_change_x = 0
                 self._refresh_horizontal_movement()
+                
+                # Allow immediate jump if UP is still held
+                if self.up_pressed:
+                    self._stop_step_sound()
+                    self.physics_engine.jump(self._current_jump_speed())
+                    self.player_sprite.jumping = True
+                    self.jump_committed_change_x = self.player_sprite.change_x
+                    arcade.play_sound(self.jump_sound)
 
         if self.player_sprite.dying:
             if self.step_sound_player and self.step_sound.is_playing(
@@ -460,14 +483,13 @@ class GameView(arcade.View):
         if self.player_sprite.dying:
             return
         if symbol == arcade.key.UP or symbol == arcade.key.W:
+            self.up_pressed = True
             if self.physics_engine.can_jump():
                 self._stop_step_sound()
                 self.physics_engine.jump(self._current_jump_speed())
                 self.player_sprite.jumping = True
                 self.jump_committed_change_x = self.player_sprite.change_x
                 arcade.play_sound(self.jump_sound)
-            else:
-                return
         elif symbol == arcade.key.LEFT or symbol == arcade.key.A:
             self.left_pressed = True
             self._refresh_horizontal_movement()
@@ -479,7 +501,9 @@ class GameView(arcade.View):
     def on_key_release(self, symbol, modifiers):
         if self.player_sprite.dying:
             return
-        if symbol == arcade.key.LEFT or symbol == arcade.key.A:
+        if symbol == arcade.key.UP or symbol == arcade.key.W:
+            self.up_pressed = False
+        elif symbol == arcade.key.LEFT or symbol == arcade.key.A:
             self.left_pressed = False
             self._refresh_horizontal_movement()
         elif symbol == arcade.key.RIGHT or symbol == arcade.key.D:

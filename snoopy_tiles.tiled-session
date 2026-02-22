@@ -34,19 +34,51 @@
             "scaleInEditor": 1
         },
         "assets/level1.json": {
-            "scale": 1.0281,
+            "scale": 1.02,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 475.6346658885322,
-                "y": 289.8550724637682
+                "x": 297.54901960784315,
+                "y": 250.9803921568627
             }
         },
         "assets/level2.json": {
             "scale": 1.5662581699346403,
-            "selectedLayer": 2,
+            "selectedLayer": 3,
             "viewCenter": {
-                "x": 288.26665275676805,
-                "y": 180.36617808147722
+                "x": 200.79703719159147,
+                "y": 201.75473371237808
+            }
+        },
+        "assets/level3.json": {
+            "scale": 1.0315656565656566,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 298.09057527539784,
+                "y": 171.5838433292534
+            }
+        },
+        "assets/level4.json": {
+            "scale": 1.0315656565656566,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 297.1211750305998,
+                "y": 180.30844553243577
+            }
+        },
+        "assets/level5.json": {
+            "scale": 1.0315656565656566,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 297.1211750305998,
+                "y": 180.30844553243577
+            }
+        },
+        "assets/level6.json": {
+            "scale": 1.0315656565656566,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 297.1211750305998,
+                "y": 180.30844553243577
             }
         },
         "assets/level_1.json": {
@@ -70,6 +102,14 @@
             "dynamicWrapping": true,
             "scaleInDock": 1,
             "scaleInEditor": 1
+        },
+        "assets/template.json": {
+            "scale": 1.0315656565656566,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 297.1211750305998,
+                "y": 180.30844553243577
+            }
         },
         "assets/test.json": {
             "scale": 1.6432031249999999,
@@ -107,22 +147,27 @@
         "assets/level1.json",
         "assets/fence.tsx",
         "assets/ground.tsx",
-        "assets/level2.json"
+        "assets/level2.json",
+        "assets/template.json",
+        "assets/level3.json",
+        "assets/level4.json",
+        "assets/level5.json",
+        "assets/level6.json"
     ],
     "project": "snoopy_tiles.tiled-project",
     "recentFiles": [
+        "assets/level6.json",
+        "assets/level5.json",
+        "assets/level4.json",
+        "assets/level3.json",
+        "assets/template.json",
         "assets/level2.json",
         "assets/ground.tsx",
         "assets/fence.tsx",
         "assets/level1.json",
         "assets/Layer_0001_8.tsx",
         "assets/dfgdfg.json",
-        "assets/map1_ccc.tsx",
-        "assets/snoopy1.tsx",
-        "assets/level_1.json",
-        "assets/map1.tsx",
-        "assets/test.json",
-        "assets/test2.json"
+        "assets/map1_ccc.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {

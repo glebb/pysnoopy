@@ -100,9 +100,9 @@ def validate_level_file(
 
             width = obj.get("width", 0)
             height = obj.get("height", 0)
-            if float(width) <= 0 or float(height) <= 0:
+            if "polygon" not in obj and (float(width) <= 0 or float(height) <= 0):
                 result.errors.append(
-                    f"{level_name}: object '{moving_hazard_object_name}' must have positive width and height"
+                    f"{level_name}: object '{moving_hazard_object_name}' must have positive width and height or be a polygon"
                 )
                 continue
 

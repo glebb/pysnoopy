@@ -154,3 +154,4 @@ cython_debug/
 .vscode
 .idea
 .DS_Store
+snoopy_tiles.tiled-session
