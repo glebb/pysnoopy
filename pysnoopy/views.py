@@ -16,7 +16,7 @@ from .globals import (
 from .game_state import GameState
 from .level_validation import validate_level_file
 from .levels import LevelHook, LevelSpec, get_default_levels
-from .sprites import Item, PlayerCharacter, TriangleHazard
+from .sprites import PlayerCharacter, TriangleHazard
 
 import random
 import types
@@ -151,19 +151,27 @@ class GameView(arcade.View):
             if spawn_should_snap_to_ground:
                 self._snap_player_to_ground(player_sprite)
 
+        self.level.set_speed_multiplier(self.run_speed_multiplier)
+        self.level.init_platforms(self.world_bounds)
+
+        if self.level.moving_platforms is not None:
+            self.scene.add_sprite_list_before("Platforms", "foreground")
+            for platform in self.level.moving_platforms:
+                self.scene.add_sprite("Platforms", platform)
+
         self.scene.add_sprite_list_before("Hazards", "foreground")
         for hazard in self.moving_hazards:
             self.scene.add_sprite("Hazards", hazard)
 
         self.scene.add_sprite_list_before("Player", "foreground")
         self.scene.add_sprite("Player", player_sprite)
-        
+
         self.physics_engine = arcade.PhysicsEnginePlatformer(
             player_sprite,
             gravity_constant=self._current_gravity(),
             walls=self.scene["ground"],
+            platforms=self.level.moving_platforms,
         )
-        self.level.set_speed_multiplier(self.run_speed_multiplier)
         self.level.setup(self.physics_engine, self.world_bounds)
 
     def _current_move_speed(self):
@@ -413,13 +421,13 @@ class GameView(arcade.View):
         for hazard in self.moving_hazards:
             hazard.update()
         self.level.update()
-        
+
         if self.player_sprite.jumping:
             if self.physics_engine.can_jump():
                 self.player_sprite.jumping = False
                 self.jump_committed_change_x = 0
                 self._refresh_horizontal_movement()
-                
+
                 # Allow immediate jump if UP is still held
                 if self.up_pressed:
                     self._stop_step_sound()
