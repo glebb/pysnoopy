@@ -63,7 +63,7 @@ class Level3Hook(LevelHook):
     _WATER_RIGHT_X: float = 25 * 18 * 2                # last water column left edge
     _PLATE_WIDTH_TILES: int = 8                         # plate width in tiles
     _PLATE_SPEED: float = 1.6                           # px/frame base speed
-    _PLATE_CENTER_Y: float = (20 - 14 - 0.5) * 18 * 2 # surface of ground row 14
+    _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * 18 * 2 # surface of ground row 14
     _OFF_SCREEN: float = -10000.0                       # hide sprite outside world
 
     def _water_width(self) -> float:

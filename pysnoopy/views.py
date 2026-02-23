@@ -155,7 +155,7 @@ class GameView(arcade.View):
         self.level.init_platforms(self.world_bounds)
 
         if self.level.moving_platforms is not None:
-            self.scene.add_sprite_list_before("Platforms", "foreground")
+            self.scene.add_sprite_list_after("Platforms", "obstacles")
             for platform in self.level.moving_platforms:
                 self.scene.add_sprite("Platforms", platform)
 
