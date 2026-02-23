@@ -14,13 +14,13 @@ from .globals import (
 
 
 class PlayerCharacter(arcade.Sprite):
-    def __init__(self):
+    def __init__(self, *, scale: float | tuple[float, float] | None = None):
         super().__init__()
 
         self.character_face_direction = RIGHT_FACING
 
         self.cur_texture = 0
-        self.scale = CHARACTER_SCALING
+        self.scale = CHARACTER_SCALING if scale is None else scale
 
         self.jumping = False
         self.dying = False

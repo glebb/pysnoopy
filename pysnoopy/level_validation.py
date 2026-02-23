@@ -3,6 +3,9 @@ from dataclasses import dataclass, field
 
 
 REQUIRED_TILE_LAYERS = ("ground", "obstacles", "foreground")
+EXPECTED_MAP_WIDTH = 32
+EXPECTED_MAP_HEIGHT = 20
+EXPECTED_TILE_SIZE = 18
 
 
 @dataclass
@@ -40,6 +43,30 @@ def validate_level_file(
     if raw_map.get("type") != "map":
         result.errors.append(f"{level_name}: map JSON 'type' must be 'map'")
 
+    map_width = raw_map.get("width")
+    if map_width != EXPECTED_MAP_WIDTH:
+        result.errors.append(
+            f"{level_name}: map 'width' must be {EXPECTED_MAP_WIDTH}, got {map_width}"
+        )
+
+    map_height = raw_map.get("height")
+    if map_height != EXPECTED_MAP_HEIGHT:
+        result.errors.append(
+            f"{level_name}: map 'height' must be {EXPECTED_MAP_HEIGHT}, got {map_height}"
+        )
+
+    tile_width = raw_map.get("tilewidth")
+    if tile_width != EXPECTED_TILE_SIZE:
+        result.errors.append(
+            f"{level_name}: map 'tilewidth' must be {EXPECTED_TILE_SIZE}, got {tile_width}"
+        )
+
+    tile_height = raw_map.get("tileheight")
+    if tile_height != EXPECTED_TILE_SIZE:
+        result.errors.append(
+            f"{level_name}: map 'tileheight' must be {EXPECTED_TILE_SIZE}, got {tile_height}"
+        )
+
     layers = raw_map.get("layers")
     if not isinstance(layers, list):
         result.errors.append(f"{level_name}: missing 'layers' array")
@@ -56,6 +83,24 @@ def validate_level_file(
             result.errors.append(
                 f"{level_name}: missing required tile layer '{required_layer}'"
             )
+
+    if isinstance(map_width, int) and isinstance(map_height, int):
+        for layer in layers:
+            if not isinstance(layer, dict) or layer.get("type") != "tilelayer":
+                continue
+            layer_name = layer.get("name")
+            layer_width = layer.get("width")
+            if layer_width != map_width:
+                result.errors.append(
+                    f"{level_name}: tile layer '{layer_name}' width must match map width ({map_width}), got {layer_width}"
+                )
+            layer_data = layer.get("data")
+            if isinstance(layer_data, list):
+                expected_data_size = map_width * map_height
+                if len(layer_data) != expected_data_size:
+                    result.errors.append(
+                        f"{level_name}: tile layer '{layer_name}' data length must be {expected_data_size}, got {len(layer_data)}"
+                    )
 
     object_layers = [
         layer

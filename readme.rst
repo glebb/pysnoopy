@@ -41,8 +41,9 @@ Recommended workflow:
 
 1. Open ``snoopy_tiles.tiled-project`` in Tiled Map Editor.
 2. Edit an existing map (for example ``assets/level1.json``) or copy ``assets/template.json`` to a new file.
-3. Keep these layer names exactly: ``ground``, ``obstacles``, ``foreground``.
-4. (Recommended) Add an object layer and place:
+3. Keep map geometry at ``32x20`` tiles with ``18x18`` tile size (the template is already configured for this).
+4. Keep these layer names exactly: ``ground``, ``obstacles``, ``foreground``.
+5. (Recommended) Add an object layer and place:
 
 	- ``spawn`` point object for player spawn.
 	- ``exit`` rectangle object for level completion zone.
@@ -50,7 +51,7 @@ Recommended workflow:
 
 	  - Optional custom properties: ``speed_x`` and ``speed_y`` (numbers).
 
-5. Save the new map as ``assets/levelN.json``.
+6. Save the new map as ``assets/levelN.json``.
 
 Fidelity workflow for C64 remake levels:
 
@@ -85,6 +86,8 @@ After editing or adding levels:
 	.. code-block:: bash
 
 	python -m pysnoopy.validate_levels --strict
+
+	Strict mode enforces ``32x20`` map geometry, ``18x18`` tile size, and per-layer tile data length consistency.
 
 1. Run the game:
 

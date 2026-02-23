@@ -3,6 +3,8 @@ from typing import Callable
 
 import arcade
 
+from .globals import SPRITE_PIXEL_SIZE, TILE_SCALING
+
 class LevelHook:
     def __init__(self):
         self.physics_engine: arcade.PhysicsEnginePlatformer | None = None
@@ -58,12 +60,12 @@ class Level3Hook(LevelHook):
     inside [water_left_x, water_right_x], so neither sprite ever touches the
     grass or pillars — visually or physically.
     """
-    _TILE_PX: int = 18 * 2                              # scaled tile size = 36 px
-    _WATER_LEFT_X: float = 8 * 18 * 2                  # first water column left edge
-    _WATER_RIGHT_X: float = 25 * 18 * 2                # last water column left edge
+    _TILE_PX: int = SPRITE_PIXEL_SIZE * TILE_SCALING    # scaled tile size in px
+    _WATER_LEFT_X: float = 8 * _TILE_PX                 # first water column left edge
+    _WATER_RIGHT_X: float = 25 * _TILE_PX               # last water column left edge
     _PLATE_WIDTH_TILES: int = 8                         # plate width in tiles
     _PLATE_SPEED: float = 1.6                           # px/frame base speed
-    _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * 18 * 2 # surface of ground row 14
+    _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * _TILE_PX # surface of ground row 14
     _OFF_SCREEN: float = -10000.0                       # hide sprite outside world
 
     def _water_width(self) -> float:

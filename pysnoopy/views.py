@@ -1,6 +1,8 @@
 import json
 
 from .globals import (
+    CHARACTER_SCALING,
+    MOVING_HAZARD_SIZE_SCALE,
     TILE_SCALING,
     PLAYER_GROUND_OFFSET,
     PLAYER_GROUND_OFFSET_STEP,
@@ -86,7 +88,7 @@ class GameView(arcade.View):
         self.level_spec = self.level_specs[self.level_index]
         self.level = self.level_spec.create_hook()
         self.run_speed_multiplier = float(self.game_state.run_speed_multiplier)
-        player_sprite = PlayerCharacter()
+        player_sprite = PlayerCharacter(scale=CHARACTER_SCALING)
         player_sprite.center_x = PLAYER_START_X
 
         self.camera = arcade.Camera2D()
@@ -271,6 +273,7 @@ class GameView(arcade.View):
             * float(raw_map.get("tileheight", 0))
             * TILE_SCALING
         )
+        hazard_size_scale = MOVING_HAZARD_SIZE_SCALE
         layers = raw_map.get("layers", [])
 
         spawn_point: tuple[float, float] | None = None
@@ -314,19 +317,19 @@ class GameView(arcade.View):
                         max_x = max(p.get("x", 0) for p in points)
                         min_y = min(p.get("y", 0) for p in points)
                         max_y = max(p.get("y", 0) for p in points)
-                        width = max(1.0, float(max_x - min_x) * TILE_SCALING)
-                        height = max(1.0, float(max_y - min_y) * TILE_SCALING)
+                        width = max(1.0, float(max_x - min_x) * TILE_SCALING * hazard_size_scale)
+                        height = max(1.0, float(max_y - min_y) * TILE_SCALING * hazard_size_scale)
                         # Adjust x, y to be the center of the bounding box
                         x += float(min_x + (max_x - min_x) / 2) * TILE_SCALING
                         y += float(min_y + (max_y - min_y) / 2) * TILE_SCALING
                     else:
                         width = max(
                             1.0,
-                            float(obj.get("width", 50.0)) * TILE_SCALING,
+                            float(obj.get("width", 50.0)) * TILE_SCALING * hazard_size_scale,
                         )
                         height = max(
                             1.0,
-                            float(obj.get("height", 50.0)) * TILE_SCALING,
+                            float(obj.get("height", 50.0)) * TILE_SCALING * hazard_size_scale,
                         )
                     speed_x = self._read_object_property(obj, "speed_x", -2.0)
                     speed_y = self._read_object_property(obj, "speed_y", 0.0)
@@ -538,7 +541,7 @@ class TitleView(arcade.View):
         self.snoopy_sprites: arcade.SpriteList | None = None
 
     def setup(self):
-        self.snoopy_sprite = PlayerCharacter()
+        self.snoopy_sprite = PlayerCharacter(scale=CHARACTER_SCALING)
         self.snoopy_sprite.center_x = SCREEN_WIDTH * 0.25
         self.snoopy_sprite.center_y = SCREEN_HEIGHT * 0.5
         self.snoopy_sprite.change_x = 1.5
