@@ -62,8 +62,8 @@ class Level3Hook(LevelHook):
     grass or pillars — visually or physically.
     """
     _TILE_PX: int = SPRITE_PIXEL_SIZE * TILE_SCALING    # scaled tile size in px
-    _WATER_LEFT_X: float = 9 * _TILE_PX                 # first water column left edge
-    _WATER_RIGHT_X: float = 23 * _TILE_PX               # last water column left edge
+    _WATER_LEFT_X: float = 8 * _TILE_PX                 # first water column left edge
+    _WATER_RIGHT_X: float = 24 * _TILE_PX               # last water column left edge
     _PLATE_WIDTH_TILES: int = 7                         # plate width in tiles
     _PLATE_SPEED: float = 1.6                           # px/frame base speed
     _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * _TILE_PX # surface of ground row 14
@@ -124,6 +124,69 @@ class Level3Hook(LevelHook):
         self._apply_positions()
 
 
+class Level6Hook(LevelHook):
+    """Moving red plate that loops right-to-left over the lava pit.
+
+    Uses the same clipped two-sprite approach as Level 3, but mirrored so the
+    plate appears from the right side and moves in the opposite direction.
+    """
+
+    _TILE_PX: int = SPRITE_PIXEL_SIZE * TILE_SCALING
+    _LAVA_LEFT_X: float = 8 * _TILE_PX
+    _LAVA_RIGHT_X: float = 24 * _TILE_PX
+    _PLATE_WIDTH_TILES: int = 7
+    _PLATE_SPEED: float = 1.6
+    _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * _TILE_PX
+    _OFF_SCREEN: float = -10000.0
+
+    def _lava_width(self) -> float:
+        return self._LAVA_RIGHT_X - self._LAVA_LEFT_X
+
+    def _plate_width(self) -> float:
+        return self._PLATE_WIDTH_TILES * self._TILE_PX
+
+    def _start_logical_left(self) -> float:
+        return self._LAVA_RIGHT_X - self._plate_width()
+
+    def init_platforms(self, world_bounds: tuple[float, float, float, float]) -> None:
+        self._logical_left: float = self._start_logical_left()
+        self.moving_platforms = arcade.SpriteList()
+        for _ in range(2):
+            plate = arcade.SpriteSolidColor(
+                width=int(self._plate_width()),
+                height=self._TILE_PX,
+                color=(215, 35, 35, 255),
+            )
+            plate.center_y = self._PLATE_CENTER_Y
+            plate.change_x = 0.0
+            self.moving_platforms.append(plate)
+        self._apply_positions()
+
+    def _apply_positions(self) -> None:
+        if self.moving_platforms is None:
+            return
+        lava_width = self._lava_width()
+        plate_width = self._plate_width()
+        logical_lefts = (self._logical_left, self._logical_left + lava_width)
+        for sprite, log_left in zip(self.moving_platforms, logical_lefts):
+            vis_left = max(log_left, self._LAVA_LEFT_X)
+            vis_right = min(log_left + plate_width, self._LAVA_RIGHT_X)
+            if vis_right <= vis_left:
+                sprite.width = 1
+                sprite.center_x = self._OFF_SCREEN
+            else:
+                sprite.width = vis_right - vis_left
+                sprite.center_x = (vis_left + vis_right) / 2.0
+
+    def update(self) -> None:
+        if self.moving_platforms is None:
+            return
+        self._logical_left -= self._PLATE_SPEED * self.speed_multiplier
+        if self._logical_left + self._plate_width() <= self._LAVA_LEFT_X:
+            self._logical_left = self._LAVA_RIGHT_X - self._plate_width()
+        self._apply_positions()
+
+
 def get_default_levels() -> list[LevelSpec]:
     return [
         LevelSpec(name="Level 1", map_path="../assets/level1.json"),
@@ -143,4 +206,5 @@ def get_default_levels() -> list[LevelSpec]:
             map_path="../assets/level5.json",
             required_object_names=("skull_hazard",),
         ),
+        LevelSpec(name="Level 6", map_path="../assets/level6.json", hook_factory=Level6Hook),
     ]
