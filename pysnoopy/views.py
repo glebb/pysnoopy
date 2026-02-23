@@ -497,13 +497,8 @@ class GameView(arcade.View):
         self._clamp_player_to_world()
         self._enforce_full_level3_platform_support()
 
-        self.player_sprite.update_animation(delta_time)
-        for hazard in self.moving_hazards:
-            hazard.update()
-        self.level.update()
-
         if self.player_sprite.jumping and not self.player_sprite.dying:
-            if self.physics_engine.can_jump():
+            if self.player_sprite.change_y <= 0 and self.physics_engine.can_jump():
                 self.player_sprite.jumping = False
                 self.jump_committed_change_x = 0
                 self._refresh_horizontal_movement()
@@ -515,6 +510,11 @@ class GameView(arcade.View):
                     self.player_sprite.jumping = True
                     self.jump_committed_change_x = self.player_sprite.change_x
                     arcade.play_sound(self.jump_sound)
+
+        self.player_sprite.update_animation(delta_time)
+        for hazard in self.moving_hazards:
+            hazard.update()
+        self.level.update()
 
         if self.player_sprite.dying:
             if self.step_sound_player and self.step_sound.is_playing(

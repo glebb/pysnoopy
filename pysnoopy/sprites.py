@@ -36,12 +36,10 @@ class PlayerCharacter(arcade.Sprite):
             self.walk_textures.append(texture)
 
         self.texture = self.idle_texture_pair[0]
-        self.direction_hit_boxes = {
-            RIGHT_FACING: self._build_scaled_hit_box(self.idle_texture_pair[RIGHT_FACING]),
-            LEFT_FACING: self._build_scaled_hit_box(self.idle_texture_pair[LEFT_FACING]),
-        }
+        self.texture_hit_boxes: dict[int, list[tuple[float, float]]] = {}
+        self._build_texture_hit_box_cache()
         self.hit_box = arcade.hitbox.RotatableHitBox(
-            self.direction_hit_boxes[self.character_face_direction]
+            self.texture_hit_boxes[id(self.texture)]
         )
 
         self.change_x = 0
@@ -54,8 +52,13 @@ class PlayerCharacter(arcade.Sprite):
     def _set_texture(self, texture):
         if self.texture is texture:
             return
+        previous_hit_box_bottom = self.center_y + min(
+            point[1] for point in self.hit_box.points
+        )
         self.texture = texture
         self._sync_hit_box_with_direction()
+        new_hit_box_bottom = min(point[1] for point in self.hit_box.points)
+        self.center_y = previous_hit_box_bottom - new_hit_box_bottom
 
     def _build_scaled_hit_box(self, texture) -> list[tuple[float, float]]:
         scale = self.scale
@@ -70,9 +73,20 @@ class PlayerCharacter(arcade.Sprite):
             for point in texture.hit_box_points
         ]
 
+    def _build_texture_hit_box_cache(self):
+        texture_pairs = [
+            self.idle_texture_pair,
+            self.jump_texture_pair,
+            self.fall_texture_pair,
+            *self.walk_textures,
+        ]
+        for texture_pair in texture_pairs:
+            for texture in texture_pair:
+                self.texture_hit_boxes[id(texture)] = self._build_scaled_hit_box(texture)
+
     def _sync_hit_box_with_direction(self):
         self.hit_box = arcade.hitbox.RotatableHitBox(
-            self.direction_hit_boxes[self.character_face_direction]
+            self.texture_hit_boxes[id(self.texture)]
         )
 
     def die(self):
