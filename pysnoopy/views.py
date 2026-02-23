@@ -2,6 +2,7 @@ import json
 
 from .globals import (
     CHARACTER_SCALING,
+    MUSIC_SPEED_MULTIPLIER_START,
     MOVING_HAZARD_SIZE_SCALE,
     TILE_SCALING,
     PLAYER_GROUND_OFFSET,
@@ -388,7 +389,8 @@ class GameView(arcade.View):
             self.level_index = 0
             self.run_speed_multiplier *= RUN_SPEED_MULTIPLIER_STEP
             self.game_state.run_speed_multiplier = self.run_speed_multiplier
-            self._apply_music_speed()
+            self.game_state.music_speed_multiplier *= RUN_SPEED_MULTIPLIER_STEP
+            self.game_state.restart_music(speed=self.game_state.music_speed_multiplier)
         else:
             self.level_index += 1
         self.setup()
@@ -615,7 +617,8 @@ class TitleView(arcade.View):
             level1 = GameView(start_level=start_level, game_state=self.game_state)
             level1.run_speed_multiplier = 1.0
             self.game_state.run_speed_multiplier = 1.0
-            self.game_state.restart_music(speed=1.0)
+            self.game_state.music_speed_multiplier = MUSIC_SPEED_MULTIPLIER_START
+            self.game_state.restart_music(speed=MUSIC_SPEED_MULTIPLIER_START)
             level1.setup()
             self.window.show_view(level1)
 
