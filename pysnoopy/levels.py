@@ -61,9 +61,9 @@ class Level3Hook(LevelHook):
     grass or pillars — visually or physically.
     """
     _TILE_PX: int = SPRITE_PIXEL_SIZE * TILE_SCALING    # scaled tile size in px
-    _WATER_LEFT_X: float = 8 * _TILE_PX                 # first water column left edge
-    _WATER_RIGHT_X: float = 25 * _TILE_PX               # last water column left edge
-    _PLATE_WIDTH_TILES: int = 8                         # plate width in tiles
+    _WATER_LEFT_X: float = 9 * _TILE_PX                 # first water column left edge
+    _WATER_RIGHT_X: float = 23 * _TILE_PX               # last water column left edge
+    _PLATE_WIDTH_TILES: int = 7                         # plate width in tiles
     _PLATE_SPEED: float = 1.6                           # px/frame base speed
     _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * _TILE_PX # surface of ground row 14
     _OFF_SCREEN: float = -10000.0                       # hide sprite outside world

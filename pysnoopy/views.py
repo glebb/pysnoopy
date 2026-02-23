@@ -2,6 +2,7 @@ import json
 
 from .globals import (
     CHARACTER_SCALING,
+    MUSIC_SPEED_MULTIPLIER_STEP,
     MUSIC_SPEED_MULTIPLIER_START,
     MOVING_HAZARD_SIZE_SCALE,
     TILE_SCALING,
@@ -18,7 +19,7 @@ from .globals import (
 )
 from .game_state import GameState
 from .level_validation import validate_level_file
-from .levels import LevelHook, LevelSpec, get_default_levels
+from .levels import Level3Hook, LevelHook, LevelSpec, get_default_levels
 from .sprites import PlayerCharacter, TriangleHazard
 
 import random
@@ -32,6 +33,7 @@ class GameView(arcade.View):
     def __init__(self, start_level: int = 1, game_state: GameState | None = None):
         super().__init__()
         self.game_state = game_state if game_state is not None else GameState()
+        self.background_texture = arcade.load_texture("../assets/images/doghouse.png")
 
         self.jump_sound = arcade.load_sound("../assets/sound/jump.wav", streaming=False)
         self.fall_sound = arcade.load_sound("../assets/sound/fall.wav", streaming=False)
@@ -82,6 +84,13 @@ class GameView(arcade.View):
         return cast(PlayerCharacter, self.physics_engine.player_sprite)
 
     def setup(self):
+        if self.fall_sound_player and self.fall_sound.is_playing(player=self.fall_sound_player):
+            self.fall_sound.stop(player=self.fall_sound_player)
+        if self.step_sound_player and self.step_sound.is_playing(player=self.step_sound_player):
+            self.step_sound.stop(player=self.step_sound_player)
+        self.fall_sound_player = None
+        self.step_sound_player = None
+
         self.left_pressed = False
         self.right_pressed = False
         self.up_pressed = False
@@ -384,21 +393,86 @@ class GameView(arcade.View):
             if not self.player_sprite.jumping:
                 self._snap_player_to_ground(self.player_sprite)
 
+    def _enforce_full_level3_platform_support(self):
+        if self.player_sprite.dying:
+            return
+        if not isinstance(self.level, Level3Hook):
+            return
+        assert self.physics_engine is not None
+        platforms = self.level.moving_platforms
+        if platforms is None:
+            return
+        if not self.physics_engine.can_jump():
+            return
+
+        hit_box_points = self.player_sprite.hit_box.points
+        player_hitbox_left = self.player_sprite.center_x + min(point[0] for point in hit_box_points)
+        player_hitbox_right = self.player_sprite.center_x + max(point[0] for point in hit_box_points)
+        player_hitbox_width = max(1.0, player_hitbox_right - player_hitbox_left)
+
+        vertical_tolerance = 8.0
+        support_candidates: list[arcade.Sprite] = []
+        for platform in platforms:
+            overlap_left = max(player_hitbox_left, platform.left)
+            overlap_right = min(player_hitbox_right, platform.right)
+            if overlap_right <= overlap_left:
+                continue
+            is_on_top = (
+                self.player_sprite.bottom >= platform.top - vertical_tolerance
+                and self.player_sprite.bottom <= platform.top + vertical_tolerance
+            )
+            if is_on_top:
+                support_candidates.append(platform)
+
+        if not support_candidates:
+            return
+
+        max_support_ratio = 0.0
+        for platform in support_candidates:
+            overlap_left = max(player_hitbox_left, platform.left)
+            overlap_right = min(player_hitbox_right, platform.right)
+            overlap_width = max(0.0, overlap_right - overlap_left)
+            support_ratio = overlap_width / player_hitbox_width
+            max_support_ratio = max(max_support_ratio, support_ratio)
+
+        if max_support_ratio > 0.5:
+            return
+
+        self._enter_death_state()
+
     def _advance_level(self):
         if self.level_index >= len(self.level_specs) - 1:
             self.level_index = 0
             self.run_speed_multiplier *= RUN_SPEED_MULTIPLIER_STEP
             self.game_state.run_speed_multiplier = self.run_speed_multiplier
-            self.game_state.music_speed_multiplier *= RUN_SPEED_MULTIPLIER_STEP
+            self.game_state.music_speed_multiplier *= MUSIC_SPEED_MULTIPLIER_STEP
             self.game_state.restart_music(speed=self.game_state.music_speed_multiplier)
         else:
             self.level_index += 1
         self.setup()
 
+    def _enter_death_state(self):
+        self.player_sprite.die()
+        self.left_pressed = False
+        self.right_pressed = False
+        self.up_pressed = False
+        self.jump_committed_change_x = 0
+        self._stop_step_sound()
+        self.fall_sound_player = arcade.play_sound(self.fall_sound, loop=False)
+
     def on_draw(self):
         assert self.camera is not None
         assert self.scene is not None
         self.clear()
+        arcade.draw_texture_rect(
+            self.background_texture,
+            rect=arcade.XYWH(
+                SCREEN_WIDTH / 2,
+                SCREEN_HEIGHT / 2,
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+            ),
+        )
         self.camera.use()
         self.scene.draw()
         self.level.draw()
@@ -421,13 +495,14 @@ class GameView(arcade.View):
             self.physics_engine.update()
 
         self._clamp_player_to_world()
+        self._enforce_full_level3_platform_support()
 
         self.player_sprite.update_animation(delta_time)
         for hazard in self.moving_hazards:
             hazard.update()
         self.level.update()
 
-        if self.player_sprite.jumping:
+        if self.player_sprite.jumping and not self.player_sprite.dying:
             if self.physics_engine.can_jump():
                 self.player_sprite.jumping = False
                 self.jump_committed_change_x = 0
@@ -446,12 +521,6 @@ class GameView(arcade.View):
                 player=self.step_sound_player
             ):
                 self.step_sound.stop(player=self.step_sound_player)
-            if not self.fall_sound_player or not self.fall_sound.is_playing(
-                player=self.fall_sound_player
-            ):
-                self.fall_sound_player = arcade.play_sound(
-                    self.fall_sound, loop=False
-                )
 
         obstacle_list = self.tile_map.sprite_lists.get("obstacles")
         if (
@@ -459,11 +528,11 @@ class GameView(arcade.View):
             and obstacle_list is not None
             and arcade.check_for_collision_with_list(self.player_sprite, obstacle_list)
         ):
-            self.player_sprite.die()
+            self._enter_death_state()
         elif not self.player_sprite.dying:
             for hazard in self.moving_hazards:
                 if self.player_sprite.collides_with_sprite(hazard):
-                    self.player_sprite.die()
+                    self._enter_death_state()
                     break
 
         if self.player_sprite.dying and self.player_sprite.top < 0:
@@ -537,6 +606,7 @@ class TitleView(arcade.View):
     def __init__(self, game_state: GameState | None = None):
         super().__init__()
         self.game_state = game_state if game_state is not None else GameState()
+        self.background_texture = arcade.load_texture("../assets/images/doghouse.png")
 
         self.letters: arcade.SpriteList | None = None
         self.snoopy_sprite: PlayerCharacter | None = None
@@ -595,6 +665,15 @@ class TitleView(arcade.View):
         assert self.letters is not None
         assert self.snoopy_sprites is not None
         self.clear()
+        arcade.draw_texture_rect(
+            self.background_texture,
+            rect=arcade.XYWH(
+                SCREEN_WIDTH / 2,
+                SCREEN_HEIGHT / 2,
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+            ),
+        )
         self.letters.draw()
         self.snoopy_sprites.draw()
 

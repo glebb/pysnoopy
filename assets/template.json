@@ -57,7 +57,7 @@
          "height":20,
          "id":2,
          "name":"foreground",
-         "opacity":1,
+         "opacity":0.8,
          "type":"tilelayer",
          "visible":true,
          "width":32,

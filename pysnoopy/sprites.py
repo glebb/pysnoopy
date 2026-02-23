@@ -77,6 +77,7 @@ class PlayerCharacter(arcade.Sprite):
 
     def die(self):
         self.dying = True
+        self.jumping = False
         self.hit_box = arcade.hitbox.RotatableHitBox([(0.0, 0.0), (0.0, 0.0), (0.0, 0.0)])
         self.change_x = 0
         self.change_y = min(self.change_y, -PLAYER_JUMP_SPEED)
