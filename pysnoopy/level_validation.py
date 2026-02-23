@@ -26,6 +26,7 @@ def validate_level_file(
     spawn_object_name: str = "spawn",
     exit_object_name: str = "exit",
     moving_hazard_object_name: str = "moving_hazard",
+    skull_hazard_object_name: str = "skull_hazard",
     required_object_names: tuple[str, ...] = (),
 ) -> LevelValidationResult:
     result = LevelValidationResult()
@@ -136,18 +137,20 @@ def validate_level_file(
                 f"{level_name}: missing required object '{required_object_name}'"
             )
 
+    hazard_object_names = (moving_hazard_object_name, skull_hazard_object_name)
     for layer in object_layers:
         for obj in layer.get("objects", []):
             if not isinstance(obj, dict):
                 continue
-            if obj.get("name") != moving_hazard_object_name:
+            object_name = obj.get("name")
+            if object_name not in hazard_object_names:
                 continue
 
             width = obj.get("width", 0)
             height = obj.get("height", 0)
             if "polygon" not in obj and (float(width) <= 0 or float(height) <= 0):
                 result.errors.append(
-                    f"{level_name}: object '{moving_hazard_object_name}' must have positive width and height or be a polygon"
+                    f"{level_name}: object '{object_name}' must have positive width and height or be a polygon"
                 )
                 continue
 
@@ -164,14 +167,14 @@ def validate_level_file(
                     value = property_values[speed_property]
                     if value is None:
                         result.errors.append(
-                            f"{level_name}: object '{moving_hazard_object_name}' has missing '{speed_property}' value"
+                            f"{level_name}: object '{object_name}' has missing '{speed_property}' value"
                         )
                         continue
                     try:
                         float(value)
                     except (TypeError, ValueError):
                         result.errors.append(
-                            f"{level_name}: object '{moving_hazard_object_name}' has non-numeric '{speed_property}'"
+                            f"{level_name}: object '{object_name}' has non-numeric '{speed_property}'"
                         )
 
     return result

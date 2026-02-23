@@ -43,6 +43,7 @@ class LevelSpec:
     spawn_object_name: str = "spawn"
     exit_object_name: str = "exit"
     moving_hazard_object_name: str = "moving_hazard"
+    skull_hazard_object_name: str = "skull_hazard"
     required_object_names: tuple[str, ...] = ()
     hook_factory: Callable[[], LevelHook] | None = None
 
@@ -136,5 +137,10 @@ def get_default_levels() -> list[LevelSpec]:
             name="Level 4",
             map_path="../assets/level4.json",
             required_object_names=("moving_hazard",),
+        ),
+        LevelSpec(
+            name="Level 5",
+            map_path="../assets/level5.json",
+            required_object_names=("skull_hazard",),
         ),
     ]

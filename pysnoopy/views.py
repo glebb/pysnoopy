@@ -21,7 +21,7 @@ from .globals import (
 from .game_state import GameState
 from .level_validation import validate_level_file
 from .levels import Level3Hook, LevelHook, LevelSpec, get_default_levels
-from .sprites import PlayerCharacter, TriangleHazard
+from .sprites import PlayerCharacter, SkullHazard, TriangleHazard
 
 import random
 import types
@@ -77,7 +77,7 @@ class GameView(arcade.View):
         self.level_spec = self.level_specs[self.level_index]
         self.level: LevelHook = self.level_spec.create_hook()
         self._validated_level_paths: set[str] = set()
-        self.moving_hazards: list[TriangleHazard] = []
+        self.moving_hazards: list[TriangleHazard | SkullHazard] = []
 
     @property
     def player_sprite(self) -> PlayerCharacter:
@@ -121,6 +121,7 @@ class GameView(arcade.View):
                 spawn_object_name=self.level_spec.spawn_object_name,
                 exit_object_name=self.level_spec.exit_object_name,
                 moving_hazard_object_name=self.level_spec.moving_hazard_object_name,
+                skull_hazard_object_name=self.level_spec.skull_hazard_object_name,
                 required_object_names=self.level_spec.required_object_names,
             )
             if not validation_result.is_valid:
@@ -145,11 +146,24 @@ class GameView(arcade.View):
             spawn_point,
             spawn_should_snap_to_ground,
             self.level_exit_zone,
-            hazard_specs,
+            moving_hazard_specs,
+            skull_hazard_specs,
         ) = self._load_level_objects_from_map()
         self.moving_hazards = []
-        for hazard_spec in hazard_specs:
+        for hazard_spec in moving_hazard_specs:
             hazard = TriangleHazard(width=hazard_spec[2], height=hazard_spec[3])
+            hazard.center_x = hazard_spec[0]
+            hazard.center_y = hazard_spec[1]
+            hazard.change_x = hazard_spec[4] * self.run_speed_multiplier
+            hazard.change_y = hazard_spec[5] * self.run_speed_multiplier
+            hazard.set_bounds(self.world_bounds)
+            self.moving_hazards.append(hazard)
+        for hazard_spec in skull_hazard_specs:
+            hazard = SkullHazard(
+                width=hazard_spec[2],
+                height=hazard_spec[3],
+                hit_box_points=hazard_spec[6],
+            )
             hazard.center_x = hazard_spec[0]
             hazard.center_y = hazard_spec[1]
             hazard.change_x = hazard_spec[4] * self.run_speed_multiplier
@@ -272,12 +286,23 @@ class GameView(arcade.View):
         bool,
         tuple[float, float, float, float] | None,
         list[tuple[float, float, float, float, float, float]],
+        list[
+            tuple[
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                list[tuple[float, float]] | None,
+            ]
+        ],
     ]:
         try:
             with open(self.level_spec.map_path, "r", encoding="utf-8") as file_handle:
                 raw_map = json.load(file_handle)
         except (FileNotFoundError, json.JSONDecodeError):
-            return None, False, None, []
+            return None, False, None, [], []
 
         map_height = (
             float(raw_map.get("height", 0))
@@ -291,6 +316,17 @@ class GameView(arcade.View):
         spawn_should_snap_to_ground = False
         exit_zone: tuple[float, float, float, float] | None = None
         moving_hazard_specs: list[tuple[float, float, float, float, float, float]] = []
+        skull_hazard_specs: list[
+            tuple[
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                list[tuple[float, float]] | None,
+            ]
+        ] = []
 
         for layer in layers:
             if not isinstance(layer, dict) or layer.get("type") != "objectgroup":
@@ -355,7 +391,65 @@ class GameView(arcade.View):
                         )
                     )
 
-        return spawn_point, spawn_should_snap_to_ground, exit_zone, moving_hazard_specs
+                if object_name == self.level_spec.skull_hazard_object_name:
+                    width = max(1.0, float(obj.get("width", 18.0)) * TILE_SCALING)
+                    height = max(1.0, float(obj.get("height", 18.0)) * TILE_SCALING)
+                    center_x = x + width / 2
+                    center_y_tiled = y + height / 2
+                    hit_box_points: list[tuple[float, float]] | None = None
+
+                    polygon = obj.get("polygon")
+                    if isinstance(polygon, list) and polygon:
+                        polygon_pairs: list[tuple[float, float]] = []
+                        min_x = float("inf")
+                        min_y = float("inf")
+                        max_x = float("-inf")
+                        max_y = float("-inf")
+                        for point in polygon:
+                            if not isinstance(point, dict):
+                                continue
+                            point_x = float(point.get("x", 0.0)) * TILE_SCALING
+                            point_y = float(point.get("y", 0.0)) * TILE_SCALING
+                            polygon_pairs.append((point_x, point_y))
+                            min_x = min(min_x, point_x)
+                            min_y = min(min_y, point_y)
+                            max_x = max(max_x, point_x)
+                            max_y = max(max_y, point_y)
+                        if polygon_pairs and min_x != float("inf") and min_y != float("inf"):
+                            width = max(1.0, max_x - min_x)
+                            height = max(1.0, max_y - min_y)
+                            center_x = x + (min_x + max_x) / 2
+                            center_y_tiled = y + (min_y + max_y) / 2
+                            hit_box_points = []
+                            for point_x, point_y in polygon_pairs:
+                                hit_box_points.append(
+                                    (
+                                        point_x - (center_x - x),
+                                        -1.0 * (point_y - (center_y_tiled - y)),
+                                    )
+                                )
+
+                    speed_x = self._read_object_property(obj, "speed_x", 0.0)
+                    speed_y = self._read_object_property(obj, "speed_y", 0.0)
+                    skull_hazard_specs.append(
+                        (
+                            center_x,
+                            map_height - center_y_tiled,
+                            width,
+                            height,
+                            speed_x,
+                            speed_y,
+                            hit_box_points,
+                        )
+                    )
+
+        return (
+            spawn_point,
+            spawn_should_snap_to_ground,
+            exit_zone,
+            moving_hazard_specs,
+            skull_hazard_specs,
+        )
 
     def _draw_scene_hit_boxes(self):
         assert self.scene is not None

@@ -315,3 +315,74 @@ class TriangleHazard(arcade.Sprite):
             self.center_x = right_bound
         elif self.change_x > 0 and self.center_x > right_bound:
             self.center_x = left_bound
+
+
+class SkullHazard(arcade.Sprite):
+    def __init__(
+        self,
+        width: float = DEFAULT_ITEM_WIDTH,
+        height: float = DEFAULT_ITEM_HEIGHT,
+        hit_box_points: list[tuple[float, float]] | None = None,
+    ):
+        super().__init__()
+
+        self.texture = arcade.load_texture("../assets/images/skull.png")
+        self.rect_width = max(1.0, float(width))
+        self.rect_height = max(1.0, float(height))
+        self.width = self.rect_width
+        self.height = self.rect_height
+
+        self.center_x = 0.0
+        self.center_y = 0.0
+        self.change_x = 0.0
+        self.change_y = 0.0
+
+        if hit_box_points and len(hit_box_points) >= 3:
+            self.hit_box = arcade.hitbox.RotatableHitBox(hit_box_points)
+        else:
+            self.hit_box = arcade.hitbox.RotatableHitBox(
+                self._build_rect_hit_box(self.rect_width, self.rect_height)
+            )
+
+        self.bounds: tuple[float, float, float, float] = (
+            self.rect_width / 2,
+            SCREEN_WIDTH - self.rect_width / 2,
+            self.rect_height / 2,
+            SCREEN_HEIGHT - self.rect_height / 2,
+        )
+
+    def _build_rect_hit_box(self, width: float, height: float):
+        half_width = width / 2
+        half_height = height / 2
+        return [
+            (-half_width, -half_height),
+            (-half_width, half_height),
+            (half_width, half_height),
+            (half_width, -half_height),
+        ]
+
+    def set_bounds(self, bounds: tuple[float, float, float, float] | None):
+        if bounds is None:
+            return
+        left, right, bottom, top = bounds
+        self.bounds = (
+            left - self.rect_width / 2,
+            right + self.rect_width / 2,
+            bottom - self.rect_height / 2,
+            top + self.rect_height / 2,
+        )
+
+    def update(self):
+        self.center_x += self.change_x
+        self.center_y += self.change_y
+        left_bound, right_bound, bottom_bound, top_bound = self.bounds
+
+        if self.change_x < 0 and self.center_x < left_bound:
+            self.center_x = right_bound
+        elif self.change_x > 0 and self.center_x > right_bound:
+            self.center_x = left_bound
+
+        if self.change_y < 0 and self.center_y < bottom_bound:
+            self.center_y = top_bound
+        elif self.change_y > 0 and self.center_y > top_bound:
+            self.center_y = bottom_bound
