@@ -104,7 +104,7 @@ class PlayerCharacter(arcade.Sprite):
             self.character_face_direction = RIGHT_FACING
 
         if self.dying:
-            self._set_texture(self.fall_texture_pair[self.character_face_direction])
+            self.texture = self.fall_texture_pair[self.character_face_direction]
             return
 
         # Jumping/falling animation while airborne

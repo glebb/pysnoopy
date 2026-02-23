@@ -2,6 +2,7 @@ import json
 
 from .globals import (
     CHARACTER_SCALING,
+    DEATH_FALL_GRAVITY_MULTIPLIER,
     MUSIC_SPEED_MULTIPLIER_STEP,
     MUSIC_SPEED_MULTIPLIER_START,
     MOVING_HAZARD_SIZE_SCALE,
@@ -490,7 +491,9 @@ class GameView(arcade.View):
 
         if self.player_sprite.dying:
             self.player_sprite.center_y += self.player_sprite.change_y
-            self.player_sprite.change_y -= self._current_gravity()
+            self.player_sprite.change_y -= (
+                self._current_gravity() * DEATH_FALL_GRAVITY_MULTIPLIER
+            )
         else:
             self.physics_engine.update()
 
@@ -535,7 +538,8 @@ class GameView(arcade.View):
                     self._enter_death_state()
                     break
 
-        if self.player_sprite.dying and self.player_sprite.top < 0:
+        death_sprite_top = self.player_sprite.center_y + (self.player_sprite.height / 2)
+        if self.player_sprite.dying and death_sprite_top < 0:
             self.setup()
         elif not self.player_sprite.dying and self.player_sprite.center_y < 200:
             self.setup()
