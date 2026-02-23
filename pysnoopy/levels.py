@@ -132,4 +132,9 @@ def get_default_levels() -> list[LevelSpec]:
             required_object_names=("moving_hazard",),
         ),
         LevelSpec(name="Level 3", map_path="../assets/level3.json", hook_factory=Level3Hook),
+        LevelSpec(
+            name="Level 4",
+            map_path="../assets/level4.json",
+            required_object_names=("moving_hazard",),
+        ),
     ]

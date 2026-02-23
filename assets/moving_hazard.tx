@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template>
+ <object name="moving_hazard" rotation="-1">
+  <properties>
+   <property name="Width" value="100"/>
+  </properties>
+  <polygon points="-5.59813,-0.597792 29.3619,52.3242 -42.383,51.0936"/>
+ </object>
+</template>
