@@ -134,17 +134,17 @@
                          "name":"Width",
                          "type":"string",
                          "value":"100"
-                     }, 
-                     {
-                      "name":"speed_x",
-                      "type":"float",
-                      "value":-3
+                        }, 
+                        {
+                         "name":"speed_x",
+                         "type":"float",
+                         "value":7
                         }],
                  "rotation":-1,
                  "type":"",
                  "visible":true,
                  "width":0,
-                 "x":566.578261705291,
+                 "x":133.578261705291,
                  "y":240.430947732791
                 }],
          "opacity":1,
