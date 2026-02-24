@@ -20,7 +20,7 @@ from .globals import (
 )
 from .game_state import GameState
 from .level_validation import validate_level_file
-from .levels import Level3Hook, LevelHook, LevelSpec, get_default_levels
+from .levels import Level3Hook, Level7Hook, LevelHook, LevelSpec, get_default_levels
 from .sprites import PlayerCharacter, SkullHazard, TriangleHazard
 
 import random
@@ -70,6 +70,7 @@ class GameView(arcade.View):
             0.0,
             float(SCREEN_HEIGHT),
         )
+        self.camera_center_y = float(SCREEN_HEIGHT) / 2
         self.level_exit_zone: tuple[float, float, float, float] | None = None
 
         self.level_specs: list[LevelSpec] = get_default_levels()
@@ -98,11 +99,17 @@ class GameView(arcade.View):
         self.jump_committed_change_x = 0
         self.level_spec = self.level_specs[self.level_index]
         self.level = self.level_spec.create_hook()
+        background_path = "../assets/images/doghouse.png"
+        if self.level_spec.name == "Level 7":
+            background_path = "../assets/images/doghouse_long.png"
+        self.background_texture = arcade.load_texture(background_path)
         self.run_speed_multiplier = float(self.game_state.run_speed_multiplier)
         player_sprite = PlayerCharacter(scale=CHARACTER_SCALING)
         player_sprite.center_x = PLAYER_START_X
 
         self.camera = arcade.Camera2D()
+        self.camera_center_y = float(SCREEN_HEIGHT) / 2
+        self.camera.position = (float(SCREEN_WIDTH) / 2, self.camera_center_y)
         layer_options = {
             "ground": {
                 "use_spatial_hash": False,
@@ -135,6 +142,11 @@ class GameView(arcade.View):
         )
 
         self.scene = arcade.Scene.from_tilemap(self.tile_map)
+        if isinstance(self.level, Level7Hook):
+            obstacles = self.tile_map.sprite_lists.get("obstacles")
+            if obstacles is not None:
+                for obstacle in obstacles:
+                    obstacle.alpha = 0
         self.world_bounds = (
             0.0,
             float(self.tile_map.width * self.tile_map.tile_width * TILE_SCALING),
@@ -249,14 +261,21 @@ class GameView(arcade.View):
         ground_sprites = self.scene["ground"]
 
         ground_top = None
+        nearest_below_top = None
+        max_allowed_top = player_sprite.center_y + (player_sprite.height * 0.5)
         for tile in ground_sprites:
             if tile.left <= player_sprite.center_x <= tile.right:
                 if ground_top is None or tile.top > ground_top:
                     ground_top = tile.top
+                if tile.top <= max_allowed_top and (
+                    nearest_below_top is None or tile.top > nearest_below_top
+                ):
+                    nearest_below_top = tile.top
 
-        if ground_top is not None:
+        target_top = nearest_below_top if nearest_below_top is not None else ground_top
+        if target_top is not None:
             min_hit_box_y = min(point[1] for point in player_sprite.hit_box.points)
-            player_sprite.center_y = ground_top - min_hit_box_y + self.player_ground_offset
+            player_sprite.center_y = target_top - min_hit_box_y + self.player_ground_offset
 
     def _adjust_ground_offset(self, delta: int):
         self.player_ground_offset += delta
@@ -462,6 +481,32 @@ class GameView(arcade.View):
             if callable(draw_hit_boxes):
                 draw_hit_boxes()
 
+    def _collides_or_touches_obstacles(
+        self,
+        obstacle_list: arcade.SpriteList,
+        touch_margin: float = 1.0,
+    ) -> bool:
+        if arcade.check_for_collision_with_list(self.player_sprite, obstacle_list):
+            return True
+
+        player_left = self.player_sprite.left - touch_margin
+        player_right = self.player_sprite.right + touch_margin
+        player_bottom = self.player_sprite.bottom - touch_margin
+        player_top = self.player_sprite.top + touch_margin
+
+        for obstacle in obstacle_list:
+            if player_right < obstacle.left:
+                continue
+            if player_left > obstacle.right:
+                continue
+            if player_top < obstacle.bottom:
+                continue
+            if player_bottom > obstacle.top:
+                continue
+            return True
+
+        return False
+
     def _is_exit_reached(self) -> bool:
         if self.player_sprite.dying:
             return False
@@ -559,16 +604,40 @@ class GameView(arcade.View):
         assert self.camera is not None
         assert self.scene is not None
         self.clear()
-        arcade.draw_texture_rect(
-            self.background_texture,
-            rect=arcade.XYWH(
-                SCREEN_WIDTH / 2,
-                SCREEN_HEIGHT / 2,
-                SCREEN_WIDTH,
-                SCREEN_HEIGHT,
-            ),
-        )
-        self.camera.use()
+        if self.level_spec.name == "Level 7":
+            self.camera.use()
+            texture_width = float(self.background_texture.width)
+            texture_height = float(self.background_texture.height)
+            world_left, _, world_bottom, _ = self.world_bounds
+            viewport_width = float(self.window.width) if self.window is not None else float(SCREEN_WIDTH)
+            camera_center_x = float(self.camera.position[0])
+            if texture_width > 0 and texture_height > 0:
+                scale = viewport_width / texture_width
+                draw_width = viewport_width
+                draw_height = texture_height * scale
+            else:
+                draw_width = viewport_width
+                draw_height = float(SCREEN_HEIGHT)
+            arcade.draw_texture_rect(
+                self.background_texture,
+                rect=arcade.XYWH(
+                    max(world_left + (draw_width / 2), camera_center_x),
+                    world_bottom + (draw_height / 2),
+                    draw_width,
+                    draw_height,
+                ),
+            )
+        else:
+            arcade.draw_texture_rect(
+                self.background_texture,
+                rect=arcade.XYWH(
+                    SCREEN_WIDTH / 2,
+                    SCREEN_HEIGHT / 2,
+                    SCREEN_WIDTH,
+                    SCREEN_HEIGHT,
+                ),
+            )
+            self.camera.use()
         self.scene.draw()
         self.level.draw()
         if self.show_hitboxes:
@@ -582,6 +651,11 @@ class GameView(arcade.View):
     def on_update(self, delta_time):
         assert self.physics_engine is not None
         assert self.tile_map is not None
+
+        level_updated_pre_physics = False
+        if isinstance(self.level, Level7Hook) and not self.player_sprite.dying:
+            self.level.update()
+            level_updated_pre_physics = True
 
         if self.player_sprite.dying:
             self.player_sprite.center_y += self.player_sprite.change_y
@@ -611,7 +685,9 @@ class GameView(arcade.View):
         self.player_sprite.update_animation(delta_time)
         for hazard in self.moving_hazards:
             hazard.update()
-        self.level.update()
+        if not level_updated_pre_physics:
+            self.level.update()
+        self._update_camera_position()
 
         if self.player_sprite.dying:
             if self.step_sound_player and self.step_sound.is_playing(
@@ -623,7 +699,7 @@ class GameView(arcade.View):
         if (
             not self.player_sprite.dying
             and obstacle_list is not None
-            and arcade.check_for_collision_with_list(self.player_sprite, obstacle_list)
+            and self._collides_or_touches_obstacles(obstacle_list)
         ):
             self._enter_death_state()
         elif not self.player_sprite.dying:
@@ -640,6 +716,15 @@ class GameView(arcade.View):
 
         if self._is_exit_reached():
             self._advance_level()
+
+    def _update_camera_position(self):
+        assert self.camera is not None
+
+        camera_target_y = self.level.camera_follow_target_y()
+        if camera_target_y is not None:
+            self.camera_center_y = max(self.camera_center_y, camera_target_y)
+
+        self.camera.position = (float(SCREEN_WIDTH) / 2, self.camera_center_y)
 
     def on_key_press(self, symbol, modifiers):
         assert self.physics_engine is not None
