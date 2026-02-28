@@ -63,6 +63,7 @@ class GameView(arcade.View):
         self.right_pressed = False
         self.up_pressed = False
         self.jump_committed_change_x = 0
+        self.jump_start_grace_remaining = 0.0
         self.run_speed_multiplier = self.game_state.run_speed_multiplier
         self.world_bounds: tuple[float, float, float, float] = (
             0.0,
@@ -97,6 +98,7 @@ class GameView(arcade.View):
         self.right_pressed = False
         self.up_pressed = False
         self.jump_committed_change_x = 0
+        self.jump_start_grace_remaining = 0.0
         self.level_spec = self.level_specs[self.level_index]
         self.level = self.level_spec.create_hook()
         background_path = "../assets/images/doghouse.png"
@@ -219,6 +221,18 @@ class GameView(arcade.View):
     def _current_jump_speed(self):
         return PLAYER_JUMP_SPEED * self.run_speed_multiplier
 
+    def _jump_takeoff_speed(self) -> float:
+        return self.level.jump_takeoff_speed(
+            self._current_jump_speed(),
+            self.player_sprite,
+        )
+
+    def _resolve_jump_committed_change_x(self) -> float:
+        return self.level.resolve_jump_committed_change_x(
+            self.player_sprite.change_x,
+            self.player_sprite,
+        )
+
     def _current_gravity(self):
         return GRAVITY * (self.run_speed_multiplier ** 2)
 
@@ -242,12 +256,20 @@ class GameView(arcade.View):
             self._stop_step_sound()
             return
 
+        base_change_x = 0.0
         if self.left_pressed == self.right_pressed:
-            self.player_sprite.change_x = 0
+            base_change_x = 0.0
         elif self.left_pressed:
-            self.player_sprite.change_x = -self._current_move_speed()
+            base_change_x = -self._current_move_speed()
         else:
-            self.player_sprite.change_x = self._current_move_speed()
+            base_change_x = self._current_move_speed()
+
+        is_grounded = self.physics_engine.can_jump()
+        self.player_sprite.change_x = self.level.resolve_horizontal_change_x(
+            base_change_x,
+            self.player_sprite,
+            is_grounded,
+        )
 
         if self.player_sprite.change_x == 0 or self.player_sprite.jumping:
             self._stop_step_sound()
@@ -507,6 +529,63 @@ class GameView(arcade.View):
 
         return False
 
+    def _ground_support_metrics(self, vertical_tolerance: float = 8.0) -> tuple[float, float]:
+        if self.scene is None:
+            return 0.0, 1.0
+
+        ground_sprites = self.scene["ground"]
+        hit_box_points = self.player_sprite.hit_box.points
+        player_hitbox_left = self.player_sprite.center_x + min(point[0] for point in hit_box_points)
+        player_hitbox_right = self.player_sprite.center_x + max(point[0] for point in hit_box_points)
+        player_hitbox_width = max(1.0, player_hitbox_right - player_hitbox_left)
+
+        total_overlap_width = 0.0
+        for ground_tile in ground_sprites:
+            overlap_left = max(player_hitbox_left, ground_tile.left)
+            overlap_right = min(player_hitbox_right, ground_tile.right)
+            if overlap_right <= overlap_left:
+                continue
+            is_on_top = (
+                self.player_sprite.bottom >= ground_tile.top - vertical_tolerance
+                and self.player_sprite.bottom <= ground_tile.top + vertical_tolerance
+            )
+            if not is_on_top:
+                continue
+            total_overlap_width += max(0.0, overlap_right - overlap_left)
+
+        return total_overlap_width, player_hitbox_width
+
+    def _can_start_jump(self) -> bool:
+        if self.physics_engine is None:
+            return False
+        if self.physics_engine.can_jump():
+            return True
+
+        if not self.level.can_start_jump(self.player_sprite):
+            return False
+
+        if self.player_sprite.jumping:
+            return False
+        return self.jump_start_grace_remaining > 0.0 and self.player_sprite.change_y <= 1.0
+
+    def _enforce_landing_support_margin(self) -> None:
+        if self.physics_engine is None:
+            return
+        if self.player_sprite.dying:
+            return
+
+        minimum_overlap_tiles = self.level.min_ground_overlap_tiles()
+        if minimum_overlap_tiles is None or minimum_overlap_tiles <= 0.0:
+            return
+        if not self.physics_engine.can_jump():
+            return
+        assert self.tile_map is not None
+
+        overlap_width, _ = self._ground_support_metrics()
+        required_overlap_width = minimum_overlap_tiles * TILE_SCALING * self.tile_map.tile_width
+        if overlap_width < required_overlap_width:
+            self._enter_death_state()
+
     def _is_exit_reached(self) -> bool:
         if self.player_sprite.dying:
             return False
@@ -652,6 +731,9 @@ class GameView(arcade.View):
         assert self.physics_engine is not None
         assert self.tile_map is not None
 
+        if not self.player_sprite.dying and not self.player_sprite.jumping:
+            self._refresh_horizontal_movement()
+
         level_updated_pre_physics = False
         if isinstance(self.level, Level7Hook) and not self.player_sprite.dying:
             self.level.update()
@@ -662,11 +744,20 @@ class GameView(arcade.View):
             self.player_sprite.change_y -= (
                 self._current_gravity() * DEATH_FALL_GRAVITY_MULTIPLIER
             )
+            self.jump_start_grace_remaining = 0.0
         else:
             self.physics_engine.update()
+            if self.physics_engine.can_jump():
+                self.jump_start_grace_remaining = self.level.jump_start_grace_seconds()
+            elif self.jump_start_grace_remaining > 0.0:
+                self.jump_start_grace_remaining = max(
+                    0.0,
+                    self.jump_start_grace_remaining - delta_time,
+                )
 
         self._clamp_player_to_world()
         self._enforce_full_level3_platform_support()
+        self._enforce_landing_support_margin()
 
         if self.player_sprite.jumping and not self.player_sprite.dying:
             if self.player_sprite.change_y <= 0 and self.physics_engine.can_jump():
@@ -675,11 +766,13 @@ class GameView(arcade.View):
                 self._refresh_horizontal_movement()
 
                 # Allow immediate jump if UP is still held
-                if self.up_pressed:
+                if self.up_pressed and self._can_start_jump():
                     self._stop_step_sound()
-                    self.physics_engine.jump(self._current_jump_speed())
+                    self.physics_engine.jump(self._jump_takeoff_speed())
                     self.player_sprite.jumping = True
-                    self.jump_committed_change_x = self.player_sprite.change_x
+                    self.jump_start_grace_remaining = 0.0
+                    self.jump_committed_change_x = self._resolve_jump_committed_change_x()
+                    self.player_sprite.change_x = self.jump_committed_change_x
                     arcade.play_sound(self.jump_sound)
 
         self.player_sprite.update_animation(delta_time)
@@ -749,11 +842,13 @@ class GameView(arcade.View):
             return
         if symbol == arcade.key.UP or symbol == arcade.key.W:
             self.up_pressed = True
-            if self.physics_engine.can_jump():
+            if self._can_start_jump():
                 self._stop_step_sound()
-                self.physics_engine.jump(self._current_jump_speed())
+                self.physics_engine.jump(self._jump_takeoff_speed())
                 self.player_sprite.jumping = True
-                self.jump_committed_change_x = self.player_sprite.change_x
+                self.jump_start_grace_remaining = 0.0
+                self.jump_committed_change_x = self._resolve_jump_committed_change_x()
+                self.player_sprite.change_x = self.jump_committed_change_x
                 arcade.play_sound(self.jump_sound)
         elif symbol == arcade.key.LEFT or symbol == arcade.key.A:
             self.left_pressed = True

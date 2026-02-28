@@ -39,6 +39,37 @@ class LevelHook:
     def set_speed_multiplier(self, multiplier: float):
         self.speed_multiplier = multiplier
 
+    def jump_takeoff_speed(
+        self,
+        base_speed: float,
+        player_sprite: arcade.Sprite,
+    ) -> float:
+        return base_speed
+
+    def resolve_horizontal_change_x(
+        self,
+        base_change_x: float,
+        player_sprite: arcade.Sprite,
+        is_grounded: bool,
+    ) -> float:
+        return base_change_x
+
+    def resolve_jump_committed_change_x(
+        self,
+        current_change_x: float,
+        player_sprite: arcade.Sprite,
+    ) -> float:
+        return current_change_x
+
+    def can_start_jump(self, player_sprite: arcade.Sprite) -> bool:
+        return True
+
+    def min_ground_overlap_tiles(self) -> float | None:
+        return None
+
+    def jump_start_grace_seconds(self) -> float:
+        return 0.0
+
 
 @dataclass(frozen=True)
 class LevelSpec:
@@ -264,6 +295,148 @@ class Level7Hook(LevelHook):
         return self._camera_target_y
 
 
+class Level8Hook(LevelHook):
+    _TILE_PX: int = SPRITE_PIXEL_SIZE * TILE_SCALING  # World-space size of one tile in pixels.
+    _GAP_START_COL: int = 12  # Left tile column where the pit begins.
+    _GAP_END_COL: int = 20  # Right tile column where the pit ends.
+    _STRIP_WIDTH_TILES: int = 6  # Conveyor strip length (tiles) on both sides of the pit.
+    _GROUND_TOP_ROW_FROM_TOP: int = 14  # Ground row index (from top) where strips are drawn/active.
+    _STRIP_GLIDE_SPEED: float = 1.8  # Passive rightward glide added while standing on strip.
+    _STRIP_FORWARD_BONUS: float = 1.4  # Extra rightward speed when player also holds right on strip.
+    _JUMP_CARRY_MAX_RIGHT_SPEED: float = 4.4  # Max rightward horizontal speed carried into jump.
+    _TAKEOFF_OVERHANG_TILES: float = 0.25  # How far past edge Snoopy can be and still start jump.
+    _MIN_GROUND_OVERLAP_TILES: float = 0.6  # Ground overlap needed to survive/land safely.
+    _JUMP_START_GRACE_SECONDS: float = 0.18  # Small late-jump window after leaving ground.
+
+    def _player_hit_box_bounds(self, player_sprite: arcade.Sprite) -> tuple[float, float, float, float]:
+        hit_box_points = player_sprite.hit_box.points
+        min_x = min(point[0] for point in hit_box_points)
+        max_x = max(point[0] for point in hit_box_points)
+        min_y = min(point[1] for point in hit_box_points)
+        max_y = max(point[1] for point in hit_box_points)
+        return (
+            player_sprite.center_x + min_x,
+            player_sprite.center_x + max_x,
+            player_sprite.center_y + min_y,
+            player_sprite.center_y + max_y,
+        )
+
+    def _overlaps_zone(self, bounds: tuple[float, float, float, float], zone: tuple[float, float, float, float]) -> bool:
+        left, right, bottom, top = bounds
+        zone_left, zone_right, zone_bottom, zone_top = zone
+        return right > zone_left and left < zone_right and top > zone_bottom and bottom < zone_top
+
+    def _boost_zones(self) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
+        level_height_tiles = 20
+        if self.level_bounds is not None:
+            _, _, _, world_top = self.level_bounds
+            level_height_tiles = max(1, int(round(world_top / self._TILE_PX)))
+
+        strip_bottom = float((level_height_tiles - (self._GROUND_TOP_ROW_FROM_TOP + 1)) * self._TILE_PX)
+        strip_top = strip_bottom + float(self._TILE_PX)
+
+        left_strip = (
+            float((self._GAP_START_COL - self._STRIP_WIDTH_TILES) * self._TILE_PX),
+            float(self._GAP_START_COL * self._TILE_PX),
+            strip_bottom,
+            strip_top,
+        )
+        right_strip = (
+            float((self._GAP_END_COL + 1) * self._TILE_PX),
+            float((self._GAP_END_COL + 1 + self._STRIP_WIDTH_TILES) * self._TILE_PX),
+            strip_bottom,
+            strip_top,
+        )
+        return left_strip, right_strip
+
+    def resolve_horizontal_change_x(
+        self,
+        base_change_x: float,
+        player_sprite: arcade.Sprite,
+        is_grounded: bool,
+    ) -> float:
+        if not is_grounded:
+            return base_change_x
+
+        player_bounds = self._player_hit_box_bounds(player_sprite)
+        for zone in self._boost_zones():
+            if self._overlaps_zone(player_bounds, zone):
+                boosted_change_x = base_change_x + self._STRIP_GLIDE_SPEED
+                if base_change_x > 0:
+                    boosted_change_x += self._STRIP_FORWARD_BONUS
+                return boosted_change_x
+        return base_change_x
+
+    def resolve_jump_committed_change_x(
+        self,
+        current_change_x: float,
+        player_sprite: arcade.Sprite,
+    ) -> float:
+        if current_change_x <= 0:
+            return current_change_x
+
+        if current_change_x > self._JUMP_CARRY_MAX_RIGHT_SPEED:
+            return self._JUMP_CARRY_MAX_RIGHT_SPEED
+        return current_change_x
+
+    def min_ground_overlap_tiles(self) -> float | None:
+        return self._MIN_GROUND_OVERLAP_TILES
+
+    def can_start_jump(self, player_sprite: arcade.Sprite) -> bool:
+        player_left, player_right, _, _ = self._player_hit_box_bounds(player_sprite)
+        gap_start_x = float(self._GAP_START_COL * self._TILE_PX)
+        gap_end_x = float((self._GAP_END_COL + 1) * self._TILE_PX)
+
+        if player_right <= gap_start_x:
+            return True
+        if player_left >= gap_end_x:
+            return True
+
+        latest_takeoff_left = gap_start_x + (self._TAKEOFF_OVERHANG_TILES * self._TILE_PX)
+        return player_left <= latest_takeoff_left
+
+    def jump_start_grace_seconds(self) -> float:
+        return self._JUMP_START_GRACE_SECONDS
+
+    def draw(self):
+        strip_base_color = (128, 84, 44, 230)
+        strip_mark_color = (214, 181, 130, 235)
+        strip_height_scale = 2.0 / 3.0
+
+        for zone in self._boost_zones():
+            left, right, bottom, top = zone
+            conveyor_top = bottom + ((top - bottom) * strip_height_scale)
+            strip_width = right - left
+            font_size = int(self._TILE_PX * 0.35)
+            edge_padding = self._TILE_PX * 0.2
+            marks_left = left + edge_padding
+            marks_right = right - edge_padding
+            marks_width = max(0.0, marks_right - marks_left)
+            marks_count = max(3, int(marks_width / (font_size * 1.8)))
+            arcade.draw_lrbt_rectangle_filled(
+                left,
+                right,
+                bottom,
+                conveyor_top,
+                strip_base_color,
+            )
+            if marks_width <= 0:
+                continue
+            step = marks_width / marks_count
+            for mark_index in range(marks_count):
+                mark_x = marks_left + ((mark_index + 0.5) * step)
+                arcade.draw_text(
+                    ">",
+                    mark_x,
+                    bottom + ((conveyor_top - bottom) * 0.22),
+                    strip_mark_color,
+                    font_size=font_size,
+                    bold=True,
+                    anchor_x="center",
+                    anchor_y="baseline",
+                )
+
+
 def get_default_levels() -> list[LevelSpec]:
     return [
         LevelSpec(name="Level 1", map_path="../assets/level1.json"),
@@ -285,4 +458,5 @@ def get_default_levels() -> list[LevelSpec]:
         ),
         LevelSpec(name="Level 6", map_path="../assets/level6.json", hook_factory=Level6Hook),
         LevelSpec(name="Level 7", map_path="../assets/level7.json", hook_factory=Level7Hook),
+        LevelSpec(name="Level 8", map_path="../assets/level8.json", hook_factory=Level8Hook),
     ]
