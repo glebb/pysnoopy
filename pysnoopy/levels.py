@@ -303,9 +303,9 @@ class Level8Hook(LevelHook):
     _GROUND_TOP_ROW_FROM_TOP: int = 14  # Ground row index (from top) where strips are drawn/active.
     _STRIP_GLIDE_SPEED: float = 1.8  # Passive rightward glide added while standing on strip.
     _STRIP_FORWARD_BONUS: float = 1.4  # Extra rightward speed when player also holds right on strip.
-    _JUMP_CARRY_MAX_RIGHT_SPEED: float = 4.4  # Max rightward horizontal speed carried into jump.
-    _TAKEOFF_OVERHANG_TILES: float = 0.25  # How far past edge Snoopy can be and still start jump.
-    _MIN_GROUND_OVERLAP_TILES: float = 0.6  # Ground overlap needed to survive/land safely.
+    _JUMP_CARRY_MAX_RIGHT_SPEED: float = 4.6  # Max rightward horizontal speed carried into jump.
+    _TAKEOFF_OVERHANG_TILES: float = 0.3  # How far past edge Snoopy can be and still start jump.
+    _MIN_GROUND_OVERLAP_TILES: float = 0.5  # Ground overlap needed to survive/land safely.
     _JUMP_START_GRACE_SECONDS: float = 0.18  # Small late-jump window after leaving ground.
 
     def _player_hit_box_bounds(self, player_sprite: arcade.Sprite) -> tuple[float, float, float, float]:
