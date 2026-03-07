@@ -3,6 +3,7 @@ from typing import Callable
 
 import arcade
 
+from .game_state import LevelRuntimeSettings
 from .globals import SPRITE_PIXEL_SIZE, TILE_SCALING
 
 
@@ -28,6 +29,14 @@ class LevelHook:
     def init_platforms(self, world_bounds: tuple[float, float, float, float]) -> None:
         pass
 
+    def configure_level_runtime_settings(self, settings: LevelRuntimeSettings) -> None:
+        """Configure per-level modifiers for this setup only.
+
+        Hooks can extend runtime behavior through this settings object, but must
+        never mutate global reality or round-level settings.
+        """
+        pass
+
     def setup(
         self,
         physics_engine: arcade.PhysicsEnginePlatformer,
@@ -37,6 +46,7 @@ class LevelHook:
         self.level_bounds = level_bounds
 
     def set_speed_multiplier(self, multiplier: float):
+        """Set effective run multiplier after global + round + level settings."""
         self.speed_multiplier = multiplier
 
     def jump_takeoff_speed(

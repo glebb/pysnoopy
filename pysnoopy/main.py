@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None):
     os.chdir(file_path)
 
     window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-    game_state = GameState(start_level=args.start_level, run_speed_multiplier=1.0)
+    game_state = GameState(start_level=args.start_level)
 
     start_view: arcade.View
     if args.start_level > 1:

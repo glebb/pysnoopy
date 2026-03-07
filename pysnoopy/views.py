@@ -9,16 +9,13 @@ from .globals import (
     TILE_SCALING,
     PLAYER_GROUND_OFFSET,
     PLAYER_GROUND_OFFSET_STEP,
-    PLAYER_MOVEMENT_SPEED,
     PLAYER_START_X,
-    GRAVITY,
-    PLAYER_JUMP_SPEED,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     SHOW_HITBOXES,
     RUN_SPEED_MULTIPLIER_STEP,
 )
-from .game_state import GameState
+from .game_state import GameState, LevelRuntimeSettings
 from .level_validation import validate_level_file
 from .levels import Level3Hook, Level7Hook, LevelHook, LevelSpec, get_default_levels
 from .sprites import PlayerCharacter, SkullHazard, TriangleHazard
@@ -64,7 +61,7 @@ class GameView(arcade.View):
         self.up_pressed = False
         self.jump_committed_change_x = 0
         self.jump_start_grace_remaining = 0.0
-        self.run_speed_multiplier = self.game_state.run_speed_multiplier
+        self.level_runtime_settings = LevelRuntimeSettings()
         self.world_bounds: tuple[float, float, float, float] = (
             0.0,
             float(SCREEN_WIDTH),
@@ -101,11 +98,12 @@ class GameView(arcade.View):
         self.jump_start_grace_remaining = 0.0
         self.level_spec = self.level_specs[self.level_index]
         self.level = self.level_spec.create_hook()
+        self.level_runtime_settings = LevelRuntimeSettings()
+        self.level.configure_level_runtime_settings(self.level_runtime_settings)
         background_path = "../assets/images/doghouse.png"
         if self.level_spec.name == "Level 7":
             background_path = "../assets/images/doghouse_long.png"
         self.background_texture = arcade.load_texture(background_path)
-        self.run_speed_multiplier = float(self.game_state.run_speed_multiplier)
         player_sprite = PlayerCharacter(scale=CHARACTER_SCALING)
         player_sprite.center_x = PLAYER_START_X
 
@@ -168,8 +166,8 @@ class GameView(arcade.View):
             hazard = TriangleHazard(width=hazard_spec[2], height=hazard_spec[3])
             hazard.center_x = hazard_spec[0]
             hazard.center_y = hazard_spec[1]
-            hazard.change_x = hazard_spec[4] * self.run_speed_multiplier
-            hazard.change_y = hazard_spec[5] * self.run_speed_multiplier
+            hazard.change_x = hazard_spec[4] * self._effective_hazard_speed_multiplier()
+            hazard.change_y = hazard_spec[5] * self._effective_hazard_speed_multiplier()
             hazard.set_bounds(self.world_bounds)
             self.moving_hazards.append(hazard)
         for hazard_spec in skull_hazard_specs:
@@ -180,8 +178,8 @@ class GameView(arcade.View):
             )
             hazard.center_x = hazard_spec[0]
             hazard.center_y = hazard_spec[1]
-            hazard.change_x = hazard_spec[4] * self.run_speed_multiplier
-            hazard.change_y = hazard_spec[5] * self.run_speed_multiplier
+            hazard.change_x = hazard_spec[4] * self._effective_hazard_speed_multiplier()
+            hazard.change_y = hazard_spec[5] * self._effective_hazard_speed_multiplier()
             hazard.set_bounds(self.world_bounds)
             self.moving_hazards.append(hazard)
 
@@ -192,7 +190,7 @@ class GameView(arcade.View):
             if spawn_should_snap_to_ground:
                 self._snap_player_to_ground(player_sprite)
 
-        self.level.set_speed_multiplier(self.run_speed_multiplier)
+        self.level.set_speed_multiplier(self._effective_run_speed_multiplier())
         self.level.init_platforms(self.world_bounds)
 
         if self.level.moving_platforms is not None:
@@ -216,10 +214,31 @@ class GameView(arcade.View):
         self.level.setup(self.physics_engine, self.world_bounds)
 
     def _current_move_speed(self):
-        return PLAYER_MOVEMENT_SPEED * self.run_speed_multiplier
+        return (
+            self.game_state.reality_settings.player_movement_speed
+            * self._effective_run_speed_multiplier()
+            * self.level_runtime_settings.move_speed_multiplier
+        )
 
     def _current_jump_speed(self):
-        return PLAYER_JUMP_SPEED * self.run_speed_multiplier
+        return (
+            self.game_state.reality_settings.player_jump_speed
+            * self._effective_run_speed_multiplier()
+            * self.level_runtime_settings.jump_speed_multiplier
+        )
+
+    def _effective_run_speed_multiplier(self) -> float:
+        # Precedence rule: global reality -> round settings -> level runtime.
+        return (
+            self.game_state.round_settings.run_speed_multiplier
+            * self.level_runtime_settings.run_speed_multiplier
+        )
+
+    def _effective_hazard_speed_multiplier(self) -> float:
+        return (
+            self._effective_run_speed_multiplier()
+            * self.level_runtime_settings.hazard_speed_multiplier
+        )
 
     def _jump_takeoff_speed(self) -> float:
         return self.level.jump_takeoff_speed(
@@ -234,10 +253,14 @@ class GameView(arcade.View):
         )
 
     def _current_gravity(self):
-        return GRAVITY * (self.run_speed_multiplier ** 2)
+        return (
+            self.game_state.reality_settings.gravity
+            * (self._effective_run_speed_multiplier() ** 2)
+            * self.level_runtime_settings.gravity_multiplier
+        )
 
     def _apply_music_speed(self):
-        self.game_state.restart_music(speed=self.run_speed_multiplier)
+        self.game_state.restart_music(speed=self.game_state.music_speed_multiplier)
 
     def _stop_step_sound(self):
         if self.step_sound_player and self.step_sound.is_playing(player=self.step_sound_player):
@@ -662,9 +685,10 @@ class GameView(arcade.View):
     def _advance_level(self):
         if self.level_index >= len(self.level_specs) - 1:
             self.level_index = 0
-            self.run_speed_multiplier *= RUN_SPEED_MULTIPLIER_STEP
-            self.game_state.run_speed_multiplier = self.run_speed_multiplier
-            self.game_state.music_speed_multiplier *= MUSIC_SPEED_MULTIPLIER_STEP
+            self.game_state.advance_round(
+                run_speed_step=RUN_SPEED_MULTIPLIER_STEP,
+                music_speed_step=MUSIC_SPEED_MULTIPLIER_STEP,
+            )
             self.game_state.restart_music(speed=self.game_state.music_speed_multiplier)
         else:
             self.level_index += 1
@@ -723,7 +747,7 @@ class GameView(arcade.View):
             self._draw_scene_hit_boxes()
             self.level.draw_hit_boxes()
         self.debug_text.text = (
-            f"{self.level_spec.name}  OFFSET: {self.player_ground_offset}  HITBOXES: {'ON' if self.show_hitboxes else 'OFF'}  SPEED: x{self.run_speed_multiplier:.2f}"
+            f"{self.level_spec.name}  OFFSET: {self.player_ground_offset}  HITBOXES: {'ON' if self.show_hitboxes else 'OFF'}  SPEED: x{self._effective_run_speed_multiplier():.2f}"
         )
         self.debug_text.draw()
 
@@ -972,9 +996,7 @@ class TitleView(arcade.View):
         if symbol == arcade.key.SPACE:
             start_level = int(self.game_state.start_level)
             level1 = GameView(start_level=start_level, game_state=self.game_state)
-            level1.run_speed_multiplier = 1.0
-            self.game_state.run_speed_multiplier = 1.0
-            self.game_state.music_speed_multiplier = MUSIC_SPEED_MULTIPLIER_START
+            self.game_state.reset_for_new_run()
             self.game_state.restart_music(speed=MUSIC_SPEED_MULTIPLIER_START)
             level1.setup()
             self.window.show_view(level1)

@@ -3,8 +3,24 @@ pySNOOPY
 
 Remake of classic C64 game Snoopy using Python + arcade.
 
-Current implementation includes levels 1-6 from the original 20-level loop,
+Current implementation includes levels 1-8 from the original 20-level loop,
 with progression wrapping back to level 1 at higher speed.
+
+Runtime Settings Hierarchy
+--------------------------
+
+Gameplay settings are applied in this strict order:
+
+1. Global reality settings (immutable baseline physics/logic).
+2. Round settings (run-wide speed multipliers, applied when loop wraps).
+3. Level runtime settings (per-level extensions only, rebuilt every level setup).
+
+Rules:
+
+- Global reality settings never change during gameplay.
+- Round multipliers increase only after finishing the final configured level.
+- Starting a new run from title resets round multipliers to baseline.
+- Level runtime settings never carry to other levels and are rebuilt on death restart.
 
 Setup
 -----
