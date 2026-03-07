@@ -6,6 +6,9 @@ import arcade
 from .game_state import LevelRuntimeSettings
 from .globals import SPRITE_PIXEL_SIZE, TILE_SCALING
 
+# Level-specific controls and tuning constants belong in this module (hooks),
+# not in pysnoopy/globals.py.
+
 
 class LevelHook:
     def __init__(self):
@@ -112,7 +115,7 @@ class Level3Hook(LevelHook):
     _WATER_RIGHT_X: float = 24 * _TILE_PX  # last water column left edge
     _PLATE_WIDTH_TILES: int = 7  # plate width in tiles
     _PLATE_SPEED: float = 1.6  # px/frame base speed
-    _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * _TILE_PX  # surface of ground row 14
+    _PLATE_CENTER_Y: float = (20 - 15 - 0.5) * _TILE_PX + 1.0  # nudge up 1px to reduce false edge deaths
     _OFF_SCREEN: float = -10000.0  # hide sprite outside world
 
     def _water_width(self) -> float:

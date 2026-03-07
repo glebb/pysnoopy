@@ -29,6 +29,17 @@
 - Level progression currently advances when player reaches the right side and wraps to level 1 after the last level, increasing speed multiplier.
 - Level-specific requirements belong in `LevelSpec.required_object_names` (for example, level 2 requires `moving_hazard`).
 
+## Runtime Settings Policy
+- Keep strict settings precedence: global reality settings -> round settings -> level runtime settings.
+- Do not add level-specific controls or tuning constants to `pysnoopy/globals.py`.
+- Place level-specific behavior/tuning in `pysnoopy/levels.py` hooks and per-level runtime settings (`LevelRuntimeSettings`).
+- Level runtime settings must not leak across levels and must reset on level setup/death restart.
+
+## Instruction Maintenance Policy
+- When adding new project rules, architecture decisions, or team policies, update this `copilot-instructions.md` in the same change.
+- If a rule changes, update both this file and any overlapping developer docs (for example `readme.rst`) to keep them consistent.
+- Treat stale/missing instruction updates as follow-up work to complete before considering a change finalized.
+
 ## Level Reference Workflow (Self Instructions)
 - Before changing any level map, check original C64 references first, then design.
 - Primary source: C64-Wiki Snoopy page (`https://www.c64-wiki.com/wiki/Snoopy`) and its per-level GIFs (`SnoopyLevel01.gif` ... `SnoopyLevel02.gif`).

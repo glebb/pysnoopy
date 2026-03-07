@@ -3,6 +3,8 @@ import json
 from .globals import (
     CHARACTER_SCALING,
     DEATH_FALL_GRAVITY_MULTIPLIER,
+    LEDGE_MIN_GROUND_OVERLAP_TILES,
+    LEDGE_OBSTACLE_FOOT_Y_TOLERANCE,
     MUSIC_SPEED_MULTIPLIER_STEP,
     MUSIC_SPEED_MULTIPLIER_START,
     MOVING_HAZARD_SIZE_SCALE,
@@ -531,8 +533,34 @@ class GameView(arcade.View):
         obstacle_list: arcade.SpriteList,
         touch_margin: float = 1.0,
     ) -> bool:
+        assert self.physics_engine is not None
+        assert self.tile_map is not None
+
+        overlap_width, _ = self._ground_support_metrics()
+        min_safe_overlap_width = LEDGE_MIN_GROUND_OVERLAP_TILES * TILE_SCALING * self.tile_map.tile_width
+        has_safe_ledge_support = overlap_width >= min_safe_overlap_width
+
+        platform_overlap_width = self._moving_platform_support_width()
+        if platform_overlap_width >= min_safe_overlap_width:
+            has_safe_ledge_support = True
+
+        def _ignore_due_to_ledge_support(obstacle: arcade.Sprite) -> bool:
+            if not has_safe_ledge_support:
+                return False
+            if obstacle.top <= self.player_sprite.bottom + LEDGE_OBSTACLE_FOOT_Y_TOLERANCE:
+                return True
+            if obstacle.bottom < self.player_sprite.bottom and obstacle.center_y < self.player_sprite.center_y:
+                return True
+            return False
+
         if arcade.check_for_collision_with_list(self.player_sprite, obstacle_list):
-            return True
+            for obstacle in obstacle_list:
+                if not self.player_sprite.collides_with_sprite(obstacle):
+                    continue
+                if _ignore_due_to_ledge_support(obstacle):
+                    continue
+                return True
+            return False
 
         player_left = self.player_sprite.left - touch_margin
         player_right = self.player_sprite.right + touch_margin
@@ -548,9 +576,36 @@ class GameView(arcade.View):
                 continue
             if player_bottom > obstacle.top:
                 continue
+            if _ignore_due_to_ledge_support(obstacle):
+                continue
             return True
 
         return False
+
+    def _moving_platform_support_width(self, vertical_tolerance: float = 8.0) -> float:
+        platforms = self.level.moving_platforms
+        if platforms is None:
+            return 0.0
+
+        hit_box_points = self.player_sprite.hit_box.points
+        player_hitbox_left = self.player_sprite.center_x + min(point[0] for point in hit_box_points)
+        player_hitbox_right = self.player_sprite.center_x + max(point[0] for point in hit_box_points)
+
+        max_overlap_width = 0.0
+        for platform in platforms:
+            overlap_left = max(player_hitbox_left, platform.left)
+            overlap_right = min(player_hitbox_right, platform.right)
+            if overlap_right <= overlap_left:
+                continue
+            is_on_top = (
+                self.player_sprite.bottom >= platform.top - vertical_tolerance
+                and self.player_sprite.bottom <= platform.top + vertical_tolerance
+            )
+            if not is_on_top:
+                continue
+            max_overlap_width = max(max_overlap_width, overlap_right - overlap_left)
+
+        return max_overlap_width
 
     def _ground_support_metrics(self, vertical_tolerance: float = 8.0) -> tuple[float, float]:
         if self.scene is None:
@@ -677,7 +732,7 @@ class GameView(arcade.View):
             support_ratio = overlap_width / player_hitbox_width
             max_support_ratio = max(max_support_ratio, support_ratio)
 
-        if max_support_ratio > 0.5:
+        if max_support_ratio >= 0.1:
             return
 
         self._enter_death_state()

@@ -18,6 +18,8 @@ Gameplay settings are applied in this strict order:
 Rules:
 
 - Global reality settings never change during gameplay.
+- Do not add level-specific controls or tuning to ``pysnoopy/globals.py``.
+- Put level-specific behavior in level hooks in ``pysnoopy/levels.py`` and per-level runtime settings.
 - Round multipliers increase only after finishing the final configured level.
 - Starting a new run from title resets round multipliers to baseline.
 - Level runtime settings never carry to other levels and are rebuilt on death restart.
