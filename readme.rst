@@ -50,6 +50,23 @@ Start directly from a specific level (1-based):
 
 	python -m pysnoopy.main --start-level 3
 
+Build Windows EXE With GitHub Actions
+-------------------------------------
+
+You can produce a Windows executable from macOS by building in GitHub Actions.
+This repository includes ``.github/workflows/windows-exe.yml`` which runs on
+``windows-latest`` and packages the game with PyInstaller.
+
+How to run it:
+
+1. Push your branch to GitHub.
+2. Open the repository on GitHub.
+3. Go to ``Actions`` -> ``Build Windows EXE``.
+4. Click ``Run workflow``.
+5. After completion, download artifact ``pysnoopy-windows-exe``.
+
+The downloaded artifact contains ``pysnoopy.exe``.
+
 Level Editing and Creation
 --------------------------
 
