@@ -122,6 +122,39 @@
                  "width":27,
                  "x":558,
                  "y":261
+                }, 
+                {
+                 "height":216,
+                 "id":3,
+                 "name":"laser_hazard",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":2,
+                 "x":194,
+                 "y":36
+                }, 
+                {
+                 "height":216,
+                 "id":4,
+                 "name":"laser_hazard",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":2,
+                 "x":320,
+                 "y":36
+                }, 
+                {
+                 "height":216,
+                 "id":5,
+                 "name":"laser_hazard",
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":2,
+                 "x":446,
+                 "y":36
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -130,7 +163,7 @@
          "y":0
         }],
  "nextlayerid":6,
- "nextobjectid":3,
+ "nextobjectid":6,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.11.2",

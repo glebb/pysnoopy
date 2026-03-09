@@ -83,6 +83,17 @@ class LevelHook:
     def jump_start_grace_seconds(self) -> float:
         return 0.0
 
+    def laser_schedule_configs(self) -> list["LaserSchedule"]:
+        return []
+
+
+@dataclass(frozen=True)
+class LaserSchedule:
+    active_duration: float
+    inactive_duration: float
+    phase_offset: float
+    color: tuple[int, int, int, int]
+
 
 @dataclass(frozen=True)
 class LevelSpec:
@@ -92,6 +103,7 @@ class LevelSpec:
     exit_object_name: str = "exit"
     moving_hazard_object_name: str = "moving_hazard"
     skull_hazard_object_name: str = "skull_hazard"
+    laser_hazard_object_name: str = "laser_hazard"
     required_object_names: tuple[str, ...] = ()
     hook_factory: Callable[[], LevelHook] | None = None
 
@@ -450,6 +462,32 @@ class Level8Hook(LevelHook):
                 )
 
 
+class Level9Hook(LevelHook):
+    _LASER_SCHEDULES: tuple[LaserSchedule, ...] = (
+        LaserSchedule(
+            active_duration=1.25,
+            inactive_duration=1.9,
+            phase_offset=0.0,
+            color=(255, 72, 72, 220),
+        ),
+        LaserSchedule(
+            active_duration=0.95,
+            inactive_duration=2.15,
+            phase_offset=0.55,
+            color=(70, 215, 255, 220),
+        ),
+        LaserSchedule(
+            active_duration=1.1,
+            inactive_duration=1.4,
+            phase_offset=1.05,
+            color=(255, 92, 242, 220),
+        ),
+    )
+
+    def laser_schedule_configs(self) -> list[LaserSchedule]:
+        return list(self._LASER_SCHEDULES)
+
+
 def get_default_levels() -> list[LevelSpec]:
     return [
         LevelSpec(name="Level 1", map_path="../assets/level1.json"),
@@ -472,4 +510,10 @@ def get_default_levels() -> list[LevelSpec]:
         LevelSpec(name="Level 6", map_path="../assets/level6.json", hook_factory=Level6Hook),
         LevelSpec(name="Level 7", map_path="../assets/level7.json", hook_factory=Level7Hook),
         LevelSpec(name="Level 8", map_path="../assets/level8.json", hook_factory=Level8Hook),
+        LevelSpec(
+            name="Level 9",
+            map_path="../assets/level9.json",
+            required_object_names=("laser_hazard",),
+            hook_factory=Level9Hook,
+        ),
     ]

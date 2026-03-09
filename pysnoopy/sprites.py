@@ -386,3 +386,71 @@ class SkullHazard(arcade.Sprite):
             self.center_y = top_bound
         elif self.change_y > 0 and self.center_y > top_bound:
             self.center_y = bottom_bound
+
+
+class TimedLaserBeamHazard(arcade.SpriteSolidColor):
+    _ZERO_HIT_BOX_POINTS = [
+        (0.0, 0.0),
+        (0.0, 0.0),
+        (0.0, 0.0),
+        (0.0, 0.0),
+    ]
+
+    def __init__(
+        self,
+        width: float,
+        height: float,
+        color: tuple[int, int, int, int],
+        *,
+        active_duration: float,
+        inactive_duration: float,
+        phase_offset: float = 0.0,
+    ):
+        normalized_width = max(1, int(round(width)))
+        normalized_height = max(1, int(round(height)))
+        super().__init__(
+            width=normalized_width,
+            height=normalized_height,
+            color=color,
+        )
+        self.rect_width = float(normalized_width)
+        self.rect_height = float(normalized_height)
+        self._active_alpha = color[3] if len(color) == 4 else 255
+        self._active_hit_box = arcade.hitbox.RotatableHitBox(
+            self._build_rect_hit_box(self.rect_width, self.rect_height)
+        )
+        self._inactive_hit_box = arcade.hitbox.RotatableHitBox(
+            self._ZERO_HIT_BOX_POINTS
+        )
+        self.active_duration = max(0.05, float(active_duration))
+        self.inactive_duration = max(0.05, float(inactive_duration))
+        self._cycle_duration = self.active_duration + self.inactive_duration
+        self._elapsed_seconds = float(phase_offset) % self._cycle_duration
+        self.is_active = self._elapsed_seconds >= self.active_duration
+        self._sync_state()
+
+    def _build_rect_hit_box(self, width: float, height: float) -> list[tuple[float, float]]:
+        half_width = width / 2
+        half_height = height / 2
+        return [
+            (-half_width, -half_height),
+            (-half_width, half_height),
+            (half_width, half_height),
+            (half_width, -half_height),
+        ]
+
+    def _sync_state(self) -> None:
+        next_is_active = self._elapsed_seconds < self.active_duration
+        if next_is_active == self.is_active:
+            return
+        self.is_active = next_is_active
+        if self.is_active:
+            self.alpha = self._active_alpha
+            self.hit_box = self._active_hit_box
+            return
+        self.alpha = 0
+        self.hit_box = self._inactive_hit_box
+
+    def advance(self, delta_time: float) -> None:
+        self._elapsed_seconds = (self._elapsed_seconds + max(delta_time, 0.0)) % self._cycle_duration
+        self._sync_state()

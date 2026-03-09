@@ -27,6 +27,7 @@ def validate_level_file(
     exit_object_name: str = "exit",
     moving_hazard_object_name: str = "moving_hazard",
     skull_hazard_object_name: str = "skull_hazard",
+    laser_hazard_object_name: str = "laser_hazard",
     required_object_names: tuple[str, ...] = (),
 ) -> LevelValidationResult:
     result = LevelValidationResult()
@@ -137,7 +138,11 @@ def validate_level_file(
                 f"{level_name}: missing required object '{required_object_name}'"
             )
 
-    hazard_object_names = (moving_hazard_object_name, skull_hazard_object_name)
+    hazard_object_names = (
+        moving_hazard_object_name,
+        skull_hazard_object_name,
+        laser_hazard_object_name,
+    )
     for layer in object_layers:
         for obj in layer.get("objects", []):
             if not isinstance(obj, dict):

@@ -20,7 +20,7 @@ from .globals import (
 from .game_state import GameState, LevelRuntimeSettings
 from .level_validation import validate_level_file
 from .levels import Level3Hook, Level7Hook, LevelHook, LevelSpec, get_default_levels
-from .sprites import PlayerCharacter, SkullHazard, TriangleHazard
+from .sprites import PlayerCharacter, SkullHazard, TimedLaserBeamHazard, TriangleHazard
 
 import random
 import types
@@ -78,7 +78,7 @@ class GameView(arcade.View):
         self.level_spec = self.level_specs[self.level_index]
         self.level: LevelHook = self.level_spec.create_hook()
         self._validated_level_paths: set[str] = set()
-        self.moving_hazards: list[TriangleHazard | SkullHazard] = []
+        self.moving_hazards: list[arcade.Sprite] = []
 
     @property
     def player_sprite(self) -> PlayerCharacter:
@@ -131,6 +131,7 @@ class GameView(arcade.View):
                 exit_object_name=self.level_spec.exit_object_name,
                 moving_hazard_object_name=self.level_spec.moving_hazard_object_name,
                 skull_hazard_object_name=self.level_spec.skull_hazard_object_name,
+                laser_hazard_object_name=self.level_spec.laser_hazard_object_name,
                 required_object_names=self.level_spec.required_object_names,
             )
             if not validation_result.is_valid:
@@ -162,6 +163,7 @@ class GameView(arcade.View):
             self.level_exit_zone,
             moving_hazard_specs,
             skull_hazard_specs,
+            laser_hazard_specs,
         ) = self._load_level_objects_from_map()
         self.moving_hazards = []
         for hazard_spec in moving_hazard_specs:
@@ -172,6 +174,37 @@ class GameView(arcade.View):
             hazard.change_y = hazard_spec[5] * self._effective_hazard_speed_multiplier()
             hazard.set_bounds(self.world_bounds)
             self.moving_hazards.append(hazard)
+        laser_schedule_configs = self.level.laser_schedule_configs()
+        for index, hazard_spec in enumerate(laser_hazard_specs):
+            active_duration, inactive_duration, phase_offset, beam_color = (
+                self._laser_schedule_config_for_index(index, laser_schedule_configs)
+            )
+            beam_hazard = TimedLaserBeamHazard(
+                width=hazard_spec[2],
+                height=hazard_spec[3],
+                color=beam_color,
+                active_duration=active_duration,
+                inactive_duration=inactive_duration,
+                phase_offset=phase_offset,
+            )
+            beam_hazard.center_x = hazard_spec[0]
+            beam_hazard.center_y = hazard_spec[1]
+            self.moving_hazards.append(beam_hazard)
+
+            emitter_size = self._laser_emitter_size(hazard_spec[2])
+            emitter_half_span = (hazard_spec[3] / 2.0) + (emitter_size / 2.0)
+            for emitter_center_y in (
+                hazard_spec[1] - emitter_half_span,
+                hazard_spec[1] + emitter_half_span,
+            ):
+                emitter = arcade.SpriteSolidColor(
+                    width=int(round(emitter_size)),
+                    height=int(round(emitter_size)),
+                    color=arcade.color.BLACK,
+                )
+                emitter.center_x = hazard_spec[0]
+                emitter.center_y = emitter_center_y
+                self.moving_hazards.append(emitter)
         for hazard_spec in skull_hazard_specs:
             hazard = SkullHazard(
                 width=hazard_spec[2],
@@ -345,6 +378,29 @@ class GameView(arcade.View):
                 return default
         return default
 
+    def _laser_schedule_config_for_index(
+        self,
+        index: int,
+        laser_schedule_configs,
+    ) -> tuple[float, float, float, tuple[int, int, int, int]]:
+        fallback_colors = (
+            (255, 72, 72, 220),
+            (70, 215, 255, 220),
+            (255, 92, 242, 220),
+        )
+        if laser_schedule_configs:
+            schedule = laser_schedule_configs[index % len(laser_schedule_configs)]
+            return (
+                schedule.active_duration,
+                schedule.inactive_duration,
+                schedule.phase_offset,
+                schedule.color,
+            )
+        return (1.0, 1.0, index * 0.35, fallback_colors[index % len(fallback_colors)])
+
+    def _laser_emitter_size(self, beam_width: float) -> float:
+        return max(12.0, beam_width * 2.5)
+
     def _load_level_objects_from_map(
         self,
     ) -> tuple[
@@ -363,12 +419,13 @@ class GameView(arcade.View):
                 list[tuple[float, float]] | None,
             ]
         ],
+        list[tuple[float, float, float, float]],
     ]:
         try:
             with open(self.level_spec.map_path, "r", encoding="utf-8") as file_handle:
                 raw_map = json.load(file_handle)
         except (FileNotFoundError, json.JSONDecodeError):
-            return None, False, None, [], []
+            return None, False, None, [], [], []
 
         map_height = (
             float(raw_map.get("height", 0))
@@ -393,6 +450,7 @@ class GameView(arcade.View):
                 list[tuple[float, float]] | None,
             ]
         ] = []
+        laser_hazard_specs: list[tuple[float, float, float, float]] = []
 
         for layer in layers:
             if not isinstance(layer, dict) or layer.get("type") != "objectgroup":
@@ -509,12 +567,25 @@ class GameView(arcade.View):
                         )
                     )
 
+                if object_name == self.level_spec.laser_hazard_object_name:
+                    width = max(1.0, float(obj.get("width", 8.0)) * TILE_SCALING)
+                    height = max(1.0, float(obj.get("height", 180.0)) * TILE_SCALING)
+                    laser_hazard_specs.append(
+                        (
+                            x + (width / 2),
+                            map_height - y - (height / 2),
+                            width,
+                            height,
+                        )
+                    )
+
         return (
             spawn_point,
             spawn_should_snap_to_ground,
             exit_zone,
             moving_hazard_specs,
             skull_hazard_specs,
+            laser_hazard_specs,
         )
 
     def _draw_scene_hit_boxes(self):
@@ -856,6 +927,9 @@ class GameView(arcade.View):
 
         self.player_sprite.update_animation(delta_time)
         for hazard in self.moving_hazards:
+            if isinstance(hazard, TimedLaserBeamHazard):
+                hazard.advance(delta_time)
+                continue
             hazard.update()
         if not level_updated_pre_physics:
             self.level.update()
