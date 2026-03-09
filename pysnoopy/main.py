@@ -26,12 +26,20 @@ def _parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--start-level",
         type=int,
-        default=1,
+        default=None,
         help="Start directly from level number N (1-based).",
     )
+    parser.add_argument(
+        "--speed",
+        type=int,
+        default=0,
+        help="Apply the end-of-loop speed boost N times before starting.",
+    )
     args = parser.parse_args(argv)
-    if args.start_level < 1:
+    if args.start_level is not None and args.start_level < 1:
         parser.error("--start-level must be >= 1")
+    if args.speed < 0:
+        parser.error("--speed must be >= 0")
     return args
 
 
@@ -39,13 +47,17 @@ def main(argv: list[str] | None = None):
     args = _parse_args(argv)
     file_path = os.path.dirname(os.path.abspath(__file__))
     os.chdir(file_path)
+    start_level = 1 if args.start_level is None else args.start_level
 
     window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-    game_state = GameState(start_level=args.start_level)
+    game_state = GameState(
+        start_level=start_level,
+        starting_speed_rounds=args.speed,
+    )
 
     start_view: arcade.View
-    if args.start_level > 1:
-        start_view = GameView(game_state=game_state, start_level=args.start_level)
+    if args.start_level is not None:
+        start_view = GameView(game_state=game_state, start_level=start_level)
     else:
         start_view = TitleView(game_state=game_state)
 

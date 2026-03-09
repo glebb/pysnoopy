@@ -6,7 +6,6 @@ from .globals import (
     LEDGE_MIN_GROUND_OVERLAP_TILES,
     LEDGE_OBSTACLE_FOOT_Y_TOLERANCE,
     MUSIC_SPEED_MULTIPLIER_STEP,
-    MUSIC_SPEED_MULTIPLIER_START,
     MOVING_HAZARD_SIZE_SCALE,
     TILE_SCALING,
     PLAYER_GROUND_OFFSET,
@@ -399,7 +398,7 @@ class GameView(arcade.View):
         return (1.0, 1.0, index * 0.35, fallback_colors[index % len(fallback_colors)])
 
     def _laser_emitter_size(self, beam_width: float) -> float:
-        return max(12.0, beam_width * 2.5)
+        return max(18.0, beam_width * 8.0)
 
     def _load_level_objects_from_map(
         self,
@@ -872,10 +871,10 @@ class GameView(arcade.View):
         if self.show_hitboxes:
             self._draw_scene_hit_boxes()
             self.level.draw_hit_boxes()
-        self.debug_text.text = (
-            f"{self.level_spec.name}  OFFSET: {self.player_ground_offset}  HITBOXES: {'ON' if self.show_hitboxes else 'OFF'}  SPEED: x{self._effective_run_speed_multiplier():.2f}"
-        )
-        self.debug_text.draw()
+            self.debug_text.text = (
+                f"{self.level_spec.name}  OFFSET: {self.player_ground_offset}  HITBOXES: {'ON' if self.show_hitboxes else 'OFF'}  SPEED: x{self._effective_run_speed_multiplier():.2f}"
+            )
+            self.debug_text.draw()
 
     def on_update(self, delta_time):
         assert self.physics_engine is not None
@@ -988,7 +987,7 @@ class GameView(arcade.View):
             return
         if symbol == arcade.key.H:
             self.show_hitboxes = not self.show_hitboxes
-            print(f"SHOW_HITBOXES={self.show_hitboxes}")
+            print(f"DEBUG_OVERLAY={self.show_hitboxes}")
             return
 
         if self.player_sprite.dying:
@@ -1126,7 +1125,7 @@ class TitleView(arcade.View):
             start_level = int(self.game_state.start_level)
             level1 = GameView(start_level=start_level, game_state=self.game_state)
             self.game_state.reset_for_new_run()
-            self.game_state.restart_music(speed=MUSIC_SPEED_MULTIPLIER_START)
+            self.game_state.restart_music(speed=self.game_state.music_speed_multiplier)
             level1.setup()
             self.window.show_view(level1)
 

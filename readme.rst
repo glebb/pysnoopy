@@ -21,7 +21,7 @@ Rules:
 - Do not add level-specific controls or tuning to ``pysnoopy/globals.py``.
 - Put level-specific behavior in level hooks in ``pysnoopy/levels.py`` and per-level runtime settings.
 - Round multipliers increase only after finishing the final configured level.
-- Starting a new run from title resets round multipliers to baseline.
+- Starting a new run from title resets round multipliers to the configured starting baseline.
 - Level runtime settings never carry to other levels and are rebuilt on death restart.
 
 Setup
@@ -49,6 +49,17 @@ Start directly from a specific level (1-based):
 .. code-block:: bash
 
 	python -m pysnoopy.main --start-level 3
+
+Seed the run with the same round-speed boosts used after finishing the full loop:
+
+.. code-block:: bash
+
+	python -m pysnoopy.main --speed 1
+	python -m pysnoopy.main --start-level 7 --speed 2
+
+``--speed N`` applies the end-of-loop multiplier ``N`` times. For example,
+``--speed 2`` starts at the same run and music speed you would have after
+wrapping from the last configured level back to level 1 twice.
 
 Build Windows EXE With GitHub Actions
 -------------------------------------

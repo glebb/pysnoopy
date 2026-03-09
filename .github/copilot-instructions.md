@@ -18,6 +18,7 @@
 - Run game:
   - `python -m pysnoopy.main`
   - `python -m pysnoopy.main --start-level 3`
+  - `python -m pysnoopy.main --speed 2`
 - Validate level files:
   - `python -m pysnoopy.validate_levels`
   - `python -m pysnoopy.validate_levels --strict`
@@ -34,6 +35,7 @@
 - Do not add level-specific controls or tuning constants to `pysnoopy/globals.py`.
 - Place level-specific behavior/tuning in `pysnoopy/levels.py` hooks and per-level runtime settings (`LevelRuntimeSettings`).
 - Level runtime settings must not leak across levels and must reset on level setup/death restart.
+- CLI `--speed N` seeds round settings by applying the normal end-of-loop round advancement `N` times; it is not an explicit multiplier override.
 
 ## Instruction Maintenance Policy
 - When adding new project rules, architecture decisions, or team policies, update this `copilot-instructions.md` in the same change.

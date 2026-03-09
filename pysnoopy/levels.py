@@ -249,7 +249,7 @@ class Level6Hook(LevelHook):
 
 
 class Level7Hook(LevelHook):
-    """Narrow elevator that rises only when the player is exactly centered."""
+    """Narrow elevator that rises after the player centers onto it."""
 
     _TILE_PX: int = SPRITE_PIXEL_SIZE * TILE_SCALING
     _ELEVATOR_WIDTH_TILES: int = 5
@@ -257,7 +257,7 @@ class Level7Hook(LevelHook):
     _ELEVATOR_CENTER_X: float = 9.5 * _TILE_PX
     _ELEVATOR_START_CENTER_Y: float = (20 - 14 - 0.775) * _TILE_PX
     _ELEVATOR_TARGET_CENTER_Y: float = _ELEVATOR_START_CENTER_Y + (12 * _TILE_PX)
-    _CENTER_TOLERANCE_PX: float = 0.5
+    _CENTER_TOLERANCE_PX: float = 4.0
 
     def init_platforms(self, world_bounds: tuple[float, float, float, float]) -> None:
         self.moving_platforms = arcade.SpriteList()
@@ -273,7 +273,11 @@ class Level7Hook(LevelHook):
         self.moving_platforms.append(elevator)
 
         self._player_on_elevator = False
+        self._elevator_engaged = False
         self._camera_target_y: float | None = None
+
+    def _center_tolerance_px(self, player_sprite: arcade.Sprite) -> float:
+        return max(self._CENTER_TOLERANCE_PX, abs(player_sprite.change_x))
 
     def _is_player_on_elevator_top(self, player_sprite: arcade.Sprite, elevator: arcade.Sprite) -> bool:
         hit_box_points = player_sprite.hit_box.points
@@ -287,11 +291,15 @@ class Level7Hook(LevelHook):
             return False
 
         is_on_top = abs(player_bottom - elevator.top) <= 8.0 and player_sprite.change_y <= 1.0
-        if not is_on_top:
-            return False
+        return is_on_top
 
+    def _is_player_centered_for_activation(
+        self,
+        player_sprite: arcade.Sprite,
+        elevator: arcade.Sprite,
+    ) -> bool:
         center_offset = abs(player_sprite.center_x - elevator.center_x)
-        return center_offset <= self._CENTER_TOLERANCE_PX
+        return center_offset <= self._center_tolerance_px(player_sprite)
 
     def update(self) -> None:
         if self.moving_platforms is None or self.physics_engine is None:
@@ -300,8 +308,12 @@ class Level7Hook(LevelHook):
         elevator = self.moving_platforms[0]
         player_sprite = self.physics_engine.player_sprite
         self._player_on_elevator = self._is_player_on_elevator_top(player_sprite, elevator)
+        if not self._player_on_elevator:
+            self._elevator_engaged = False
+        elif self._elevator_engaged or self._is_player_centered_for_activation(player_sprite, elevator):
+            self._elevator_engaged = True
 
-        if self._player_on_elevator and elevator.center_y < self._ELEVATOR_TARGET_CENTER_Y:
+        if self._elevator_engaged and elevator.center_y < self._ELEVATOR_TARGET_CENTER_Y:
             rise_step = min(
                 self._ELEVATOR_SPEED * self.speed_multiplier,
                 self._ELEVATOR_TARGET_CENTER_Y - elevator.center_y,
@@ -332,6 +344,9 @@ class Level8Hook(LevelHook):
     _TAKEOFF_OVERHANG_TILES: float = 0.3  # How far past edge Snoopy can be and still start jump.
     _MIN_GROUND_OVERLAP_TILES: float = 0.5  # Ground overlap needed to survive/land safely.
     _JUMP_START_GRACE_SECONDS: float = 0.18  # Small late-jump window after leaving ground.
+
+    def _scaled_motion_speed(self, base_speed: float) -> float:
+        return base_speed * self.speed_multiplier
 
     def _player_hit_box_bounds(self, player_sprite: arcade.Sprite) -> tuple[float, float, float, float]:
         hit_box_points = player_sprite.hit_box.points
@@ -386,9 +401,9 @@ class Level8Hook(LevelHook):
         player_bounds = self._player_hit_box_bounds(player_sprite)
         for zone in self._boost_zones():
             if self._overlaps_zone(player_bounds, zone):
-                boosted_change_x = base_change_x + self._STRIP_GLIDE_SPEED
+                boosted_change_x = base_change_x + self._scaled_motion_speed(self._STRIP_GLIDE_SPEED)
                 if base_change_x > 0:
-                    boosted_change_x += self._STRIP_FORWARD_BONUS
+                    boosted_change_x += self._scaled_motion_speed(self._STRIP_FORWARD_BONUS)
                 return boosted_change_x
         return base_change_x
 
@@ -400,8 +415,9 @@ class Level8Hook(LevelHook):
         if current_change_x <= 0:
             return current_change_x
 
-        if current_change_x > self._JUMP_CARRY_MAX_RIGHT_SPEED:
-            return self._JUMP_CARRY_MAX_RIGHT_SPEED
+        max_right_speed = self._scaled_motion_speed(self._JUMP_CARRY_MAX_RIGHT_SPEED)
+        if current_change_x > max_right_speed:
+            return max_right_speed
         return current_change_x
 
     def min_ground_overlap_tiles(self) -> float | None:
@@ -431,7 +447,6 @@ class Level8Hook(LevelHook):
         for zone in self._boost_zones():
             left, right, bottom, top = zone
             conveyor_top = bottom + ((top - bottom) * strip_height_scale)
-            strip_width = right - left
             font_size = int(self._TILE_PX * 0.35)
             edge_padding = self._TILE_PX * 0.2
             marks_left = left + edge_padding
